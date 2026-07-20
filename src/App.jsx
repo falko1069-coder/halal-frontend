@@ -45,12 +45,10 @@ const RAW_STOCKS = [
 
 async function fetchMarketData() {
   try {
-    // 🔗 อัปเดตเป็นลิงก์ Render ตัวใหม่ล่าสุดแล้ว
     const res = await fetch(`https://halal-stock-backend.onrender.com/api/stocks`);
     if (!res.ok) throw new Error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
     const responseData = await res.json();
     
-    // ⚡ ระบบดักจับการโหลดแบบใหม่ แม่นยำ 100%
     if (!responseData.isReady) {
        throw new Error(`กำลังสแกนงบการเงินและกราฟเข้าคลัง (${responseData.progress}/${responseData.total}) กรุณารอสักครู่...`);
     }
@@ -71,6 +69,9 @@ async function fetchMarketData() {
           debtRatio: realData.debtRatio || 0,
           totalDebt: realData.totalDebt || 0,
           totalAssets: realData.totalAssets || 0,
+          // 🚀 [AI Injection] ดึงข้อมูล AI Insight จากหลังบ้านมาใช้งาน
+          aiBusiness: realData.aiInsight?.business || "กำลังรอประมวลผลธุรกิจ...",
+          aiRisk: realData.aiInsight?.halalRisk || "กำลังประเมินความเสี่ยงฮาลาล...",
         };
       }
       return mockStock;
@@ -465,7 +466,7 @@ function StockDetailView({ stock, onBack }) {
   const yMax = series.length > 0 ? Math.max(stock.targetPrice, ...series.map((p) => p.price)) * 1.015 : 100;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 animate-in fade-in duration-300">
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-emerald-400 transition-all duration-200"><ChevronLeft size={16} /> Back</button>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -521,6 +522,33 @@ function StockDetailView({ stock, onBack }) {
           </div>
         </div>
       </div>
+
+      {/* 🤖 กล่องความฉลาด AI จาก Gemini */}
+      <div className="rounded-xl border border-teal-500/20 bg-gradient-to-r from-teal-900/20 to-emerald-900/10 p-5 mt-2 shadow-lg">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="rounded-lg p-1.5 bg-teal-500/20">
+              <Activity size={16} className="text-teal-400" />
+            </div>
+            <h3 className="text-white text-sm font-semibold flex items-center gap-2">
+              AI Business & Halal Insight 
+              <span className="px-2 py-0.5 rounded text-[10px] bg-teal-500/20 text-teal-300 border border-teal-500/30">Gemini Powered</span>
+            </h3>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-lg bg-black/20 border border-white/5 p-4 transition-all hover:border-teal-500/30">
+            <p className="text-teal-400 text-xs font-bold uppercase mb-2 flex items-center gap-1.5">🏢 ภาพรวมธุรกิจ (Business)</p>
+            <p className="text-slate-300 text-sm leading-relaxed">{stock.aiBusiness}</p>
+          </div>
+          <div className="rounded-lg bg-black/20 border border-white/5 p-4 transition-all hover:border-amber-500/30">
+            <p className="text-amber-400 text-xs font-bold uppercase mb-2 flex items-center gap-1.5">⚖️ ความเสี่ยงต้องห้าม (Halal Risk)</p>
+            <p className="text-slate-300 text-sm leading-relaxed">{stock.aiRisk}</p>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }
