@@ -5,7 +5,7 @@ import {
 import {
   LayoutGrid, ShieldCheck, Activity, TrendingUp, TrendingDown, Minus, Search, ChevronRight,
   ChevronLeft, Moon, BarChart3, Wallet, ArrowUpRight, ArrowDownRight, CircleDot, Filter,
-  ShieldAlert, Target, Gauge, Info, AlertTriangle, RefreshCw,
+  ShieldAlert, Target, Gauge, Info, AlertTriangle, RefreshCw, Sparkles
 } from "lucide-react";
 
 // ===========================================================================
@@ -69,12 +69,16 @@ async function fetchMarketData() {
           debtRatio: realData.debtRatio || 0,
           totalDebt: realData.totalDebt || 0,
           totalAssets: realData.totalAssets || 0,
-          // 🚀 [AI Injection] ดึงข้อมูล AI Insight จากหลังบ้านมาใช้งาน
-          aiBusiness: realData.aiInsight?.business || "กำลังรอประมวลผลธุรกิจ...",
-          aiRisk: realData.aiInsight?.halalRisk || "กำลังประเมินความเสี่ยงฮาลาล...",
+          // 🚀 [AI Injection] ป้องกันค่าว่าง (Fallback) เพื่อไม่ให้ UI พัง
+          aiBusiness: realData.aiInsight?.business || "ระบบกำลังรวบรวมข้อมูลธุรกิจ โปรดรอสักครู่...",
+          aiRisk: realData.aiInsight?.halalRisk || "กำลังให้ AI ประเมินความเสี่ยงฮาลาล...",
         };
       }
-      return mockStock;
+      return { 
+        ...mockStock, 
+        aiBusiness: "กำลังรอข้อมูลจากฐานข้อมูล...", 
+        aiRisk: "กำลังรอการประเมิน..." 
+      };
     });
 
     return { stocks: updatedStocks, indices: RAW_INDICES, chartSeries: RAW_CHART_SERIES };
@@ -524,11 +528,11 @@ function StockDetailView({ stock, onBack }) {
       </div>
 
       {/* 🤖 กล่องความฉลาด AI จาก Gemini */}
-      <div className="rounded-xl border border-teal-500/20 bg-gradient-to-r from-teal-900/20 to-emerald-900/10 p-5 mt-2 shadow-lg">
-        <div className="flex items-center justify-between mb-4">
+      <div className="rounded-xl border border-teal-500/20 bg-gradient-to-r from-teal-900/20 to-emerald-900/10 p-6 mt-4 shadow-xl">
+        <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <div className="rounded-lg p-1.5 bg-teal-500/20">
-              <Activity size={16} className="text-teal-400" />
+              <Sparkles size={16} className="text-teal-400" />
             </div>
             <h3 className="text-white text-sm font-semibold flex items-center gap-2">
               AI Business & Halal Insight 
@@ -537,14 +541,15 @@ function StockDetailView({ stock, onBack }) {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="rounded-lg bg-black/20 border border-white/5 p-4 transition-all hover:border-teal-500/30">
-            <p className="text-teal-400 text-xs font-bold uppercase mb-2 flex items-center gap-1.5">🏢 ภาพรวมธุรกิจ (Business)</p>
-            <p className="text-slate-300 text-sm leading-relaxed">{stock.aiBusiness}</p>
+            <p className="text-teal-400 text-xs font-bold uppercase mb-3 flex items-center gap-1.5">🏢 ภาพรวมธุรกิจ (Business)</p>
+            {/* 🚀 [AI Injection] เพิ่มคลาส whitespace-pre-wrap เพื่อให้ข้อความเว้นบรรทัดได้ถูกต้อง */}
+            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{stock.aiBusiness}</p>
           </div>
           <div className="rounded-lg bg-black/20 border border-white/5 p-4 transition-all hover:border-amber-500/30">
-            <p className="text-amber-400 text-xs font-bold uppercase mb-2 flex items-center gap-1.5">⚖️ ความเสี่ยงต้องห้าม (Halal Risk)</p>
-            <p className="text-slate-300 text-sm leading-relaxed">{stock.aiRisk}</p>
+            <p className="text-amber-400 text-xs font-bold uppercase mb-3 flex items-center gap-1.5">⚖️ ความเสี่ยงต้องห้าม (Halal Risk)</p>
+            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{stock.aiRisk}</p>
           </div>
         </div>
       </div>
@@ -583,13 +588,19 @@ export default function HalalDashboard() {
     }
   }, [marketData]);
 
+  // 🚀 [Optimize] ปรับแต่งลูปการดึง API ให้เบาเครื่อง และไม่สแปมเซิร์ฟเวอร์
   useEffect(() => { 
     loadData(); 
+    
+    // ถ้าระบบพร้อมแล้วให้เช็คข้อมูลทุกๆ 1 นาที (60000ms) แต่ถ้ายังสแกนไม่เสร็จให้เช็คทุก 4 วินาที (4000ms)
+    const delay = marketData ? 60000 : 4000;
+    
     const interval = setInterval(() => {
       loadData(true);
-    }, 4000); // เช็คหลังบ้านทุก 4 วิ จนกว่าจะโหลดเสร็จ
+    }, delay);
+    
     return () => clearInterval(interval);
-  }, [loadData]);
+  }, [loadData, marketData]);
 
   const analyzedStocks = useMemo(() => {
     if (!marketData) return [];
