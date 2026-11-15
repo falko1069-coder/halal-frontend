@@ -26,32 +26,33 @@ const RAW_INDICES = [
   { name: "FTSE SET Shariah Index", value: "1,124.55", change: 1.12, tag: "Thai SET" },
 ];
 
+// เพิ่มค่าเริ่มต้น purificationRate (% สัดส่วนรายได้ดอกเบี้ยแฝงโดยประมาณสำหรับคำนวณชำระล้างเงินปันผลตามหลัก AAOIFI)
 const RAW_STOCKS = [
   // 🇺🇸 หุ้นสหรัฐอเมริกา (US Market)
-  { ticker: "HLAL", companyName: "Wahed FTSE USA Shariah ETF", sector: "ETF", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "PCOR", companyName: "Procore Technologies", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "SPUS", companyName: "SP Funds S&P 500 Shariah", sector: "ETF", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "AAPL", companyName: "Apple Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "MSFT", companyName: "Microsoft Corp.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "GOOGL", companyName: "Alphabet Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "ADBE", companyName: "Adobe Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "CRM", companyName: "Salesforce Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "AMD", companyName: "Advanced Micro Devices", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "CSCO", companyName: "Cisco Systems", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "TSLA", companyName: "Tesla Inc.", sector: "Consumer", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "CAT", companyName: "Caterpillar Inc.", sector: "Industrials", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "LLY", companyName: "Eli Lilly and Company", sector: "Healthcare", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "JNJ", companyName: "Johnson & Johnson", sector: "Healthcare", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "TXN", companyName: "Texas Instruments", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
+  { ticker: "HLAL", companyName: "Wahed FTSE USA Shariah ETF", sector: "ETF", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.5 },
+  { ticker: "PCOR", companyName: "Procore Technologies", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.2 },
+  { ticker: "SPUS", companyName: "SP Funds S&P 500 Shariah", sector: "ETF", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.4 },
+  { ticker: "AAPL", companyName: "Apple Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.8 },
+  { ticker: "MSFT", companyName: "Microsoft Corp.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.6 },
+  { ticker: "GOOGL", companyName: "Alphabet Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 2.1 },
+  { ticker: "ADBE", companyName: "Adobe Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.1 },
+  { ticker: "CRM", companyName: "Salesforce Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.4 },
+  { ticker: "AMD", companyName: "Advanced Micro Devices", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.9 },
+  { ticker: "CSCO", companyName: "Cisco Systems", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.9 },
+  { ticker: "TSLA", companyName: "Tesla Inc.", sector: "Consumer", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.5 },
+  { ticker: "CAT", companyName: "Caterpillar Inc.", sector: "Industrials", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 2.5 },
+  { ticker: "LLY", companyName: "Eli Lilly and Company", sector: "Healthcare", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.8 },
+  { ticker: "JNJ", companyName: "Johnson & Johnson", sector: "Healthcare", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.3 },
+  { ticker: "TXN", companyName: "Texas Instruments", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.4 },
   // 🇹🇭 หุ้นไทย (Thai SET Market)
-  { ticker: "BDMS.BK", companyName: "Bangkok Dusit Medical Services", sector: "Healthcare", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "BH.BK", companyName: "Bumrungrad Hospital PCL", sector: "Healthcare", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "ADVANC.BK", companyName: "Advanced Info Service PCL", sector: "Technology", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "HMPRO.BK", companyName: "Home Product Center PCL", sector: "Consumer", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "AOT.BK", companyName: "Airports of Thailand PCL", sector: "Industrials", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "DELTA.BK", companyName: "Delta Electronics (Thailand)", sector: "Technology", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "PTTEP.BK", companyName: "PTT Exploration & Production", sector: "Energy", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
-  { ticker: "GULF.BK", companyName: "Gulf Energy Development", sector: "Utilities", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0 },
+  { ticker: "BDMS.BK", companyName: "Bangkok Dusit Medical Services", sector: "Healthcare", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.7 },
+  { ticker: "BH.BK", companyName: "Bumrungrad Hospital PCL", sector: "Healthcare", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.9 },
+  { ticker: "ADVANC.BK", companyName: "Advanced Info Service PCL", sector: "Technology", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.8 },
+  { ticker: "HMPRO.BK", companyName: "Home Product Center PCL", sector: "Consumer", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.6 },
+  { ticker: "AOT.BK", companyName: "Airports of Thailand PCL", sector: "Industrials", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 2.8 },
+  { ticker: "DELTA.BK", companyName: "Delta Electronics (Thailand)", sector: "Technology", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.8 },
+  { ticker: "PTTEP.BK", companyName: "PTT Exploration & Production", sector: "Energy", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.7 },
+  { ticker: "GULF.BK", companyName: "Gulf Energy Development", sector: "Utilities", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 4.5 },
 ];
 
 async function fetchMarketData() {
@@ -102,7 +103,7 @@ async function fetchMarketData() {
 }
 
 // ===========================================================================
-// BUSINESS LOGIC + POSITION SIZING, RRR & BUDDY AI COACH ENGINE
+// BUSINESS LOGIC + POSITION SIZING, RRR, ACTIVE P/L & BUDDY AI COACH ENGINE
 // ===========================================================================
 
 const HALAL_DEBT_THRESHOLD = 33;
@@ -120,8 +121,8 @@ function getSignal(rsi) {
   return { status: "Sell", tone: "sell", rank: 4 };
 }
 
-// 🎯 คำนวณจุดตั้งซื้อที่ดีที่สุด, RRR, ขนาดไม้ลงทุน และ "ข้อความเพื่อนคู่หูฟันธง (Buddy Talk)"
-function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio) {
+// 🎯 คำนวณจุดตั้งซื้อที่ดีที่สุด, RRR, ขนาดไม้ลงทุน, กำไร/ขาดทุนหุ้นที่ถือจริง และ "ข้อความเพื่อนคู่หูฟันธง (Buddy Talk)"
+function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio, holding) {
   const curr = stock.currency || "$";
   const price = stock.currentPrice || 0;
   const support = stock.supportLevel > 0 ? stock.supportLevel : price * 0.95;
@@ -247,7 +248,29 @@ function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio) {
   const expectedProfitMoney = Math.round(allocAmount * (cleanUpside / 100));
   const maxLossMoney = Math.round(allocAmount * (cleanDownside / 100));
 
-  // 6. 🗣️ สร้างข้อความ "เพื่อนคู่หูฟันธง (Buddy AI Talk)" ผสมสตอรี่ธุรกิจ + จังหวะราคา
+  // 6. 💼 คำนวณสถานะหุ้นที่ถืออยู่จริง (Active Position P/L Tracker)
+  const heldShares = Number(holding?.shares || 0);
+  const avgCost = Number(holding?.avgCost || 0);
+  const isHeld = heldShares > 0 && avgCost > 0;
+  const investedCapital = isHeld ? Number((heldShares * avgCost).toFixed(2)) : 0;
+  const currentMarketValue = isHeld ? Number((heldShares * price).toFixed(2)) : 0;
+  const pnlAmount = isHeld ? Number((currentMarketValue - investedCapital).toFixed(2)) : 0;
+  const pnlPct = isHeld && avgCost > 0 ? Number((((price - avgCost) / avgCost) * 100).toFixed(2)) : 0;
+
+  let holdingAlert = "";
+  if (isHeld) {
+    if (price >= cleanTarget || pnlPct >= 10) {
+      holdingAlert = `🎉 ชนเป้ากำไรแล้ว! (+${pnlPct}%) พิจารณาแบ่งขายล็อกกำไรเข้ากระเป๋าได้เลยเพื่อน!`;
+    } else if (price <= cleanStop || pnlPct <= -5) {
+      holdingAlert = `🚨 ราคาหลุดแนวรับ/Stop-Loss (${curr}${cleanStop.toFixed(2)}) ระวังความเสี่ยงด้วยนะเพื่อน!`;
+    } else if (pnlPct >= 0) {
+      holdingAlert = `🟢 พอร์ตบวกอยู่ +${pnlPct}% (+${curr}${pnlAmount.toLocaleString()}) ถือรันรอเป้า ${curr}${cleanTarget.toFixed(2)} ได้เลย`;
+    } else {
+      holdingAlert = `🛡️ ย่อตัวเล็กน้อย (${pnlPct}%) แต่ยังไม่หลุด Stop-Loss (${curr}${cleanStop.toFixed(2)}) ถือรอลุ้นฟื้นตัวได้`;
+    }
+  }
+
+  // 7. 🗣️ สร้างข้อความ "เพื่อนคู่หูฟันธง (Buddy AI Talk)" ผสมสตอรี่ธุรกิจ + จังหวะราคา + หุ้นที่ถือจริง
   const cleanName = stock.ticker.replace(".BK", "");
   const bizShort = (stock.aiBusiness || "ธุรกิจหลักกำลังเติบโตได้ดี").replace(/^ธุรกิจ:\s*/i, "").trim();
   let buddyTalk = "";
@@ -260,6 +283,10 @@ function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio) {
     buddyTalk = `อย่าเพิ่งรีบเคาะซื้อ ${cleanName} ที่ราคา ${curr}${price.toFixed(2)} ตอนนี้นะเพื่อน! ถึงข่าวและพื้นฐานธุรกิจจะดีมาก (${bizShort}) แต่ราคานี้วิ่งขึ้นมาสูงกว่าจุดได้เปรียบแล้ว อดใจรอให้มันย่อลงมาแถวๆ ${curr}${bestBuyPrice.toFixed(2)} (รอลงอีก -${entryDiscountPct}%) ค่อยตั้ง Limit ช้อนซื้อด้วยงบ ${curr}${allocAmount.toLocaleString()} จะปลอดภัยกว่าเยอะ!`;
   } else {
     buddyTalk = `เบรกมือด่วนเพื่อน! อย่าเพิ่งไล่ราคา ${cleanName} ตอนนี้เด็ดขาด ถึงธุรกิจจะดูดี (${bizShort}) แต่ราคา ${curr}${price.toFixed(2)} พุ่งขึ้นมาโซนตึงจัด (RSI ${stock.rsi}) เสี่ยงโดนเทขายทำกำไร รอให้มันพักตัวลงมาแถวๆ ${curr}${bestBuyPrice.toFixed(2)} ก่อนค่อยว่ากัน!`;
+  }
+
+  if (isHeld) {
+    buddyTalk = `[พอร์ตของคุณถืออยู่ ${heldShares} หุ้น ทุน ${curr}${avgCost.toFixed(2)} -> ${holdingAlert}] · ${buddyTalk}`;
   }
 
   return {
@@ -285,30 +312,41 @@ function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio) {
     recommendedShares,
     expectedProfitMoney,
     maxLossMoney,
+    isHeld,
+    heldShares,
+    avgCost,
+    investedCapital,
+    currentMarketValue,
+    pnlAmount,
+    pnlPct,
+    holdingAlert,
   };
 }
 
-function analyzeStock(stock, portfolio) {
+function analyzeStock(stock, portfolio, holdings) {
   const debtRatio = Number(stock.debtRatio);
   const halalStatus = getHalalStatus(debtRatio);
   const signal = getSignal(stock.rsi);
-  const plan = getRiskAndPositionPlan(stock, halalStatus.halal, signal.status, portfolio);
+  const holding = holdings ? holdings[stock.ticker] : null;
+  const plan = getRiskAndPositionPlan(stock, halalStatus.halal, signal.status, portfolio, holding);
   return { ...stock, debtRatio, ...halalStatus, ...signal, ...plan };
 }
 
+// คงค่า Active Buy Signals ของ App (6).jsx ไว้ครบ พร้อมบอกจำนวนหุ้นที่ถือจริงควบคู่กัน
 function buildQuickStats(analyzedStocks, favCount) {
   const halalCount = analyzedStocks.filter((s) => s.halal).length;
   const buyNowCount = analyzedStocks.filter((s) => s.timingState === "BUY_NOW").length;
   const buyCount = analyzedStocks.filter(
     (s) => s.status === "Buy" || s.status === "Strong Buy"
   ).length;
+  const heldCount = analyzedStocks.filter((s) => s.isHeld).length;
   const avgDebtRatio =
     analyzedStocks.reduce((sum, s) => sum + s.debtRatio, 0) / analyzedStocks.length;
 
   return [
     { label: "Halal Universe", value: `${halalCount}/${analyzedStocks.length}`, sub: `Avg. Debt ${avgDebtRatio.toFixed(1)}% (<33%)`, icon: ShieldCheck },
     { label: "Buy Right Now", value: `${buyNowCount}`, sub: "ซื้อตอนนี้ได้เลย ไม่ต้องรอกราฟย่อ", icon: Target },
-    { label: "Active Buy Signals", value: `${buyCount}`, sub: "Strong Buy & Buy setups", icon: Activity },
+    { label: "Active Buy Signals", value: `${buyCount}`, sub: heldCount > 0 ? `Strong Buy & Buy · ถือจริง ${heldCount} ตัว` : "Strong Buy & Buy setups", icon: Activity },
     { label: "Pinned Favorites", value: `${favCount}`, sub: "your custom watchlist", icon: Star },
   ];
 }
@@ -456,8 +494,162 @@ function FavoriteButton({ isFav, onToggle, size = 15 }) {
   );
 }
 
+// 💼 หน้าต่างป๊อปอัปบันทึก/แก้ไข "หุ้นที่ฉันซื้อถืออยู่จริง (Position Editor Modal)"
+function HoldingEditorModal({ stock, onClose, onSaveHolding, onRemoveHolding }) {
+  if (!stock) return null;
+  const curr = stock.currency || "$";
+  const [shares, setShares] = useState(
+    stock.isHeld ? String(stock.heldShares) : String(stock.recommendedShares || 1)
+  );
+  const [avgCost, setAvgCost] = useState(
+    stock.isHeld ? String(stock.avgCost) : String(stock.currentPrice || 0)
+  );
+
+  const numShares = Math.max(0, Number(shares) || 0);
+  const numCost = Math.max(0, Number(avgCost) || 0);
+  const totalCost = numShares * numCost;
+  const currentVal = numShares * stock.currentPrice;
+  const estPnl = currentVal - totalCost;
+  const estPnlPct = numCost > 0 ? ((stock.currentPrice - numCost) / numCost) * 100 : 0;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (numShares <= 0 || numCost <= 0) {
+      onRemoveHolding(stock.ticker);
+    } else {
+      onSaveHolding(stock.ticker, numShares, numCost);
+    }
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[#131824] border border-emerald-500/30 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-white/10 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-extrabold text-white">💼 บันทึกหุ้นที่ถือจริง: {stock.ticker}</span>
+              <MarketBadge market={stock.market} />
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {stock.companyName} · ราคาตลาดปัจจุบัน {curr}{stock.currentPrice.toFixed(2)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-xs"
+          >
+            ✕ ปิด
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3.5">
+          <div>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <label className="text-slate-300 font-semibold">จำนวนหุ้นที่ถืออยู่ (Shares)</label>
+              <button
+                type="button"
+                onClick={() => setShares(String(stock.recommendedShares || 1))}
+                className="text-[11px] text-emerald-400 hover:underline"
+              >
+                ใช้จำนวนหุ้นแนะนำ ({stock.recommendedShares} หุ้น)
+              </button>
+            </div>
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={shares}
+              onChange={(e) => setShares(e.target.value)}
+              placeholder="เช่น 100 หรือ 0.05"
+              className="w-full bg-[#090D16] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <label className="text-slate-300 font-semibold">ราคาต้นทุนเฉลี่ยต่อหุ้น ({curr})</label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAvgCost(String(stock.currentPrice))}
+                  className="text-[11px] text-sky-400 hover:underline"
+                >
+                  ราคาปัจจุบัน ({curr}{stock.currentPrice})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAvgCost(String(stock.bestBuyPrice))}
+                  className="text-[11px] text-emerald-400 hover:underline"
+                >
+                  จุด Best Buy ({curr}{stock.bestBuyPrice})
+                </button>
+              </div>
+            </div>
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={avgCost}
+              onChange={(e) => setAvgCost(e.target.value)}
+              placeholder={`ราคาที่ซื้อมา (${curr})`}
+              className="w-full bg-[#090D16] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          {/* พรีวิวกำไร/ขาดทุนทันที */}
+          <div className="rounded-xl bg-[#090D16] border border-white/10 p-3 space-y-1.5 text-xs">
+            <div className="flex justify-between text-slate-400">
+              <span>ต้นทุนรวมทั้งหมด:</span>
+              <span className="font-bold text-white">{curr}{totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between text-slate-400">
+              <span>มูลค่าตลาดปัจจุบัน:</span>
+              <span className="font-bold text-white">{curr}{currentVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between pt-1 border-t border-white/5">
+              <span className="text-slate-300 font-semibold">กำไร / ขาดทุนสุทธิ (P/L):</span>
+              <span className={`font-extrabold ${estPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                {estPnl >= 0 ? "+" : ""}{curr}{estPnl.toFixed(2)} ({estPnlPct >= 0 ? "+" : ""}{estPnlPct.toFixed(2)}%)
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-2">
+            <button
+              type="submit"
+              className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs py-2.5 rounded-xl transition-all"
+            >
+              💾 บันทึกเข้าพอร์ตที่ถือจริง
+            </button>
+            {stock.isHeld && (
+              <button
+                type="button"
+                onClick={() => {
+                  onRemoveHolding(stock.ticker);
+                  onClose();
+                }}
+                className="px-3.5 py-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-bold text-xs transition-all"
+              >
+                🗑️ ลบออก (ขายแล้ว)
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // 💼 แผงควบคุม "เงินสดในมือของฉัน (My Portfolio Cash)" อัปเดตตัวเลขหน้าเว็บได้ตลอดเวลา
-function PortfolioCashBar({ portfolio, onUpdatePortfolio }) {
+function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortfolioTab }) {
   const handleNumChange = (field, val) => {
     const clean = Math.max(0, Number(val) || 0);
     onUpdatePortfolio({ ...portfolio, [field]: clean });
@@ -471,13 +663,22 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio }) {
             <Wallet size={20} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-white font-bold text-sm">
                 พอร์ตเงินสดในมือ & คำนวณขนาดไม้ลงทุนอัตโนมัติ
               </h3>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 Auto-Saved
               </span>
+              {heldCount > 0 && (
+                <button
+                  type="button"
+                  onClick={onOpenPortfolioTab}
+                  className="text-[11px] px-2.5 py-0.5 rounded-full bg-indigo-500/25 text-indigo-300 border border-indigo-400/40 hover:bg-indigo-500/35 font-semibold transition-all"
+                >
+                  💼 ดูหุ้นที่ถือจริง ({heldCount} ตัว) & ชำระปันผล →
+                </button>
+              )}
             </div>
             <p className="text-slate-400 text-xs mt-0.5">
               พิมพ์แก้จำนวนเงินในมือได้ตลอดเวลา เพื่อน AI จะคำนวณจุดตั้งซื้อและจำนวนหุ้นที่ควรลงให้ทันที
@@ -546,6 +747,223 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// 🕌 คอมโพเนนต์เครื่องคิดเลข "ชำระล้างเงินปันผลฮาลาล (Halal Dividend Purification Calculator)"
+function DividendPurificationBox({ stocks, defaultTicker = "AAPL", purificationLogs, onAddLog, onClearLogs }) {
+  const [selectedTicker, setSelectedTicker] = useState(defaultTicker);
+  const selectedStock = stocks.find((s) => s.ticker === selectedTicker) || stocks[0];
+  const curr = selectedStock?.currency || "$";
+
+  const [dividendInput, setDividendInput] = useState("1000");
+  const [impurePctInput, setImpurePctInput] = useState(String(selectedStock?.purificationRate ?? 1.5));
+  const [taxRatePct, setTaxRatePct] = useState(selectedStock?.market === "TH" ? 10 : 15);
+
+  useEffect(() => {
+    if (selectedStock) {
+      setImpurePctInput(String(selectedStock.purificationRate ?? 1.5));
+      setTaxRatePct(selectedStock.market === "TH" ? 10 : 15);
+    }
+  }, [selectedTicker, selectedStock]);
+
+  const grossDividend = Math.max(0, Number(dividendInput) || 0);
+  const taxAmount = (grossDividend * taxRatePct) / 100;
+  const netReceived = grossDividend - taxAmount;
+  const impureRate = Math.max(0, Number(impurePctInput) || 0);
+  const purifyAmount = (netReceived * impureRate) / 100;
+  const pureHalalDividend = netReceived - purifyAmount;
+
+  const handleRecordPurification = () => {
+    if (netReceived <= 0) return;
+    onAddLog({
+      id: Date.now(),
+      date: new Date().toLocaleDateString("th-TH"),
+      ticker: selectedStock.ticker,
+      currency: curr,
+      netReceived: Number(netReceived.toFixed(2)),
+      impureRate,
+      purifyAmount: Number(purifyAmount.toFixed(2)),
+      pureHalalDividend: Number(pureHalalDividend.toFixed(2)),
+    });
+  };
+
+  return (
+    <div className="rounded-2xl border border-teal-500/30 bg-gradient-to-br from-[#112224] via-[#131824] to-[#131824] p-5 shadow-xl space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+        <div>
+          <h3 className="text-white font-bold text-base flex items-center gap-2">
+            🕌 เครื่องคิดเลขชำระล้างเงินปันผลฮาลาล (Halal Dividend Purification)
+          </h3>
+          <p className="text-slate-400 text-xs mt-0.5">
+            คำนวณยอดบริจาคชำระล้างรายได้ดอกเบี้ยแฝงตามมาตรฐาน AAOIFI เพื่อให้เงินปันผลสะอาดบริสุทธิ์ 100%
+          </p>
+        </div>
+        <span className="text-[11px] px-2.5 py-1 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30 font-semibold">
+          AAOIFI Shariah Standard
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3.5">
+        <div className="bg-[#090D16] border border-white/10 rounded-xl p-3">
+          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">
+            1. เลือกหุ้นที่ได้รับปันผล
+          </label>
+          <select
+            value={selectedTicker}
+            onChange={(e) => setSelectedTicker(e.target.value)}
+            className="w-full bg-transparent text-white font-bold text-sm outline-none cursor-pointer"
+          >
+            {stocks.map((s) => (
+              <option key={s.ticker} value={s.ticker} className="bg-[#131824]">
+                {s.ticker} ({s.companyName}) {s.isHeld ? `[ถืออยู่ ${s.heldShares} หุ้น]` : ""}
+              </option>
+            ))}
+          </select>
+          <p className="text-[10px] text-teal-400 mt-1.5">
+            หนี้สินฮาลาล: {selectedStock?.debtRatio.toFixed(1)}% ({selectedStock?.halal ? "ผ่านเกณฑ์" : "เกินเกณฑ์"})
+          </p>
+        </div>
+
+        <div className="bg-[#090D16] border border-white/10 rounded-xl p-3">
+          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">
+            2. เงินปันผลที่ได้รับ ({curr})
+          </label>
+          <div className="flex items-center gap-1">
+            <span className="text-slate-400 font-bold text-sm">{curr}</span>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={dividendInput}
+              onChange={(e) => setDividendInput(e.target.value)}
+              className="w-full bg-transparent text-white font-extrabold text-base outline-none"
+            />
+          </div>
+          <p className="text-[10px] text-slate-500 mt-1">กรอกยอดก่อนหักภาษี หรือยอดสุทธิก็ได้</p>
+        </div>
+
+        <div className="bg-[#090D16] border border-white/10 rounded-xl p-3">
+          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">
+            3. หักภาษี ณ ที่จ่าย (%)
+          </label>
+          <div className="flex items-center gap-1.5 mt-1">
+            {[
+              { pct: 0, label: "0% (ยอดสุทธิแล้ว)" },
+              { pct: 10, label: "10% (ไทย)" },
+              { pct: 15, label: "15% (US)" },
+            ].map((t) => (
+              <button
+                key={t.pct}
+                type="button"
+                onClick={() => setTaxRatePct(t.pct)}
+                className={`flex-1 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                  taxRatePct === t.pct
+                    ? "bg-teal-500/25 border-teal-400/50 text-teal-300"
+                    : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-slate-500 mt-1.5">
+            รับจริงหลังภาษี: <strong className="text-slate-300">{curr}{netReceived.toFixed(2)}</strong>
+          </p>
+        </div>
+
+        <div className="bg-[#090D16] border border-white/10 rounded-xl p-3">
+          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">
+            4. สัดส่วนชำระล้าง (% รายได้แฝง)
+          </label>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={impurePctInput}
+              onChange={(e) => setImpurePctInput(e.target.value)}
+              className="w-full bg-transparent text-amber-300 font-extrabold text-base outline-none"
+            />
+            <span className="text-amber-300 font-bold text-sm">%</span>
+          </div>
+          <p className="text-[10px] text-slate-500 mt-1">
+            ค่าประมาณการของ {selectedStock?.ticker}: {selectedStock?.purificationRate}%
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+        <div className="rounded-xl bg-[#090D16] border border-white/10 p-3.5">
+          <p className="text-[11px] text-slate-400">เงินปันผลรับสุทธิ (หลังภาษี)</p>
+          <p className="text-xl font-extrabold text-white mt-0.5">
+            {curr}{netReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-amber-500/10 border border-amber-400/40 p-3.5">
+          <p className="text-[11px] text-amber-300 font-bold">🤲 ยอดที่ต้องแบ่งบริจาคชำระล้าง ({impureRate}%)</p>
+          <p className="text-2xl font-extrabold text-amber-300 mt-0.5">
+            {curr}{purifyAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <p className="text-[10px] text-amber-200/70 mt-0.5">นำไปบริจาคสาธารณประโยชน์ (ไม่หวังผลตอบแทน)</p>
+        </div>
+
+        <div className="rounded-xl bg-emerald-500/15 border border-emerald-400/40 p-3.5 flex flex-col justify-between">
+          <div>
+            <p className="text-[11px] text-emerald-300 font-bold">✨ เงินปันผลฮาลาลบริสุทธิ์ 100% (เก็บใช้ได้)</p>
+            <p className="text-2xl font-extrabold text-emerald-300 mt-0.5">
+              {curr}{pureHalalDividend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleRecordPurification}
+            className="mt-2 w-full py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-all"
+          >
+            + บันทึกประวัติการชำระล้างปันผล
+          </button>
+        </div>
+      </div>
+
+      {purificationLogs && purificationLogs.length > 0 && (
+        <div className="pt-3 border-t border-white/10">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-slate-300">📜 ประวัติการชำระล้างเงินปันผลที่บันทึกไว้</span>
+            <button
+              type="button"
+              onClick={onClearLogs}
+              className="text-[11px] text-rose-400 hover:underline"
+            >
+              ล้างประวัติทั้งหมด
+            </button>
+          </div>
+          <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+            {purificationLogs.map((log) => (
+              <div
+                key={log.id}
+                className="flex flex-wrap items-center justify-between bg-[#090D16] border border-white/5 rounded-lg px-3 py-2 text-xs"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">{log.date}</span>
+                  <span className="font-bold text-white">{log.ticker}</span>
+                  <span className="text-slate-400">ปันผลรับ {log.currency}{log.netReceived}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-amber-300 font-semibold">
+                    บริจาคชำระล้าง: {log.currency}{log.purifyAmount} ({log.impureRate}%)
+                  </span>
+                  <span className="text-emerald-400 font-bold">
+                    สุทธิฮาลาล: {log.currency}{log.pureHalalDividend}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -701,6 +1119,7 @@ function ControlToolbar({
             className="bg-transparent text-xs font-medium text-white outline-none cursor-pointer"
           >
             <option value="BUY_NOW_FIRST" className="bg-[#131824]">ซื้อตอนนี้ได้เลยก่อน (Buy Now)</option>
+            <option value="HELD_FIRST" className="bg-[#131824]">หุ้นที่ถืออยู่ในพอร์ตก่อน</option>
             <option value="RRR_DESC" className="bg-[#131824]">ความคุ้มค่า (RRR) สูงสุด</option>
             <option value="RSI_ASC" className="bg-[#131824]">RSI ต่ำไปสูง (น่าช้อนซื้อ)</option>
             <option value="UPSIDE_DESC" className="bg-[#131824]">เป้ากำไร (Upside %) สูงสุด</option>
@@ -728,8 +1147,8 @@ function ControlToolbar({
   );
 }
 
-// การ์ดหุ้นพร้อมป้าย "ซื้อตอนนี้ vs รอลงกว่านี้" และกล่อง "💬 เพื่อนคู่หูฟันธง (AI Buddy Talk)"
-function StockCard({ stock, onSelect, isFav, onToggleFav }) {
+// การ์ดหุ้นพร้อมป้าย "ซื้อตอนนี้ vs รอลงกว่านี้" + ปุ่มบันทึกหุ้นถือจริง + กล่อง "🗣️ เพื่อนคู่หูฟันธง"
+function StockCard({ stock, onSelect, isFav, onToggleFav, onOpenHoldingModal }) {
   const curr = stock.currency || "$";
   const isPositive = stock.change >= 0;
 
@@ -801,8 +1220,49 @@ function StockCard({ stock, onSelect, isFav, onToggleFav }) {
           </div>
         </div>
 
+        {/* 💼 แถบแสดงสถานะหุ้นที่ซื้อถืออยู่จริง */}
+        {stock.isHeld ? (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenHoldingModal(stock);
+            }}
+            className={`mt-3 rounded-xl p-2.5 border transition-all ${
+              stock.pnlAmount >= 0
+                ? "bg-emerald-500/15 border-emerald-400/50"
+                : "bg-rose-500/15 border-rose-400/50"
+            }`}
+          >
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-white flex items-center gap-1">
+                💼 ถือจริง: {stock.heldShares} หุ้น @ {curr}{stock.avgCost.toFixed(2)}
+              </span>
+              <span className="text-[10px] underline text-slate-300 hover:text-white">แก้ไข</span>
+            </div>
+            <div className="flex items-center justify-between text-xs mt-1">
+              <span className="text-slate-300">กำไร/ขาดทุนจริง:</span>
+              <span className={`font-extrabold ${stock.pnlAmount >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                {stock.pnlAmount >= 0 ? "+" : ""}{curr}{stock.pnlAmount.toLocaleString()} ({stock.pnlPct >= 0 ? "+" : ""}{stock.pnlPct}%)
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenHoldingModal(stock);
+              }}
+              className="w-full py-1.5 px-3 rounded-xl bg-white/[0.04] hover:bg-indigo-500/20 border border-white/10 hover:border-indigo-400/40 text-[11px] font-semibold text-slate-300 hover:text-indigo-200 transition-all flex items-center justify-center gap-1.5"
+            >
+              💼 บันทึกว่าซื้อถืออยู่จริง (คำนวณกำไร/ขาดทุน)
+            </button>
+          </div>
+        )}
+
         {/* 🚦 กล่องฟันธงจังหวะซื้อ: ซื้อตอนนี้เลย vs รอลงกว่านี้ + จำนวนเงินที่ควรลง */}
-        <div className="mt-3 rounded-xl bg-[#090D16]/90 border border-sky-500/25 p-3 space-y-2">
+        <div className="mt-2.5 rounded-xl bg-[#090D16]/90 border border-sky-500/25 p-3 space-y-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <span className="text-[10px] text-slate-400 font-semibold uppercase">จังหวะเข้าซื้อ:</span>
             <ActionTimingBadge timingState={stock.timingState} timingBadge={stock.timingBadge} />
@@ -872,7 +1332,7 @@ function StockCard({ stock, onSelect, isFav, onToggleFav }) {
         <PriceRangeBar stock={stock} />
       </div>
 
-      {/* 🗣️ กล่องใหม่: เพื่อนคู่หูฟันธง (AI Buddy Talk) บอกตรงๆ ว่าซื้อเลยหรือรอลงกว่านี้ */}
+      {/* 🗣️ กล่องเพื่อนคู่หูฟันธง (AI Buddy Talk) บอกตรงๆ ว่าซื้อเลยหรือรอลงกว่านี้ */}
       <div className={`mt-3.5 p-3 rounded-xl border transition-all ${buddyBoxTone}`}>
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1.5 text-teal-300">
@@ -922,7 +1382,7 @@ function LoadingState({ message }) {
 // VIEWS
 // ===========================================================================
 
-function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock, onNavigateSignals, favorites, onToggleFav }) {
+function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock, onNavigateSignals, favorites, onToggleFav, onOpenHoldingModal }) {
   const [heroTicker, setHeroTicker] = useState("AAPL");
   const hero = stocks.find((s) => s.ticker === heroTicker) || stocks[0];
   const heroCurr = hero?.currency || "$";
@@ -942,6 +1402,10 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
   const pinnedStocks = useMemo(() => {
     return stocks.filter((s) => favorites.includes(s.ticker));
   }, [stocks, favorites]);
+
+  const heldStocks = useMemo(() => {
+    return stocks.filter((s) => s.isHeld);
+  }, [stocks]);
 
   const quickChartTickers = ["AAPL", "SPUS", "TSLA", "BDMS.BK", "ADVANC.BK", "AOT.BK"].filter((t) =>
     stocks.some((s) => s.ticker === t)
@@ -969,6 +1433,54 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
           );
         })}
       </div>
+
+      {/* 💼 แถวแสดงหุ้นที่คุณซื้อถืออยู่จริง (My Active Positions P/L Banner) */}
+      {heldStocks.length > 0 && (
+        <div className="rounded-2xl border border-indigo-500/35 bg-gradient-to-r from-indigo-950/30 via-[#131824] to-emerald-950/20 p-5">
+          <div className="flex items-center justify-between mb-3.5">
+            <h3 className="text-white font-bold text-sm flex items-center gap-2">
+              💼 พอร์ตหุ้นที่คุณซื้อถืออยู่จริง (My Active Positions & Real-time P/L)
+            </h3>
+            <span className="text-xs text-indigo-300">{heldStocks.length} รายการที่ถืออยู่</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {heldStocks.map((s) => (
+              <div
+                key={s.ticker}
+                onClick={() => onSelectStock(s.ticker)}
+                className="p-3.5 rounded-xl bg-[#090D16]/90 border border-indigo-500/30 hover:border-indigo-400 transition-all cursor-pointer space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-extrabold text-white text-sm">{s.ticker}</span>
+                    <MarketBadge market={s.market} />
+                    <span className="text-[11px] text-slate-400">({s.heldShares} หุ้น)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenHoldingModal(s);
+                    }}
+                    className="text-[10px] px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300"
+                  >
+                    ✏️ แก้ไข
+                  </button>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">ทุน {s.currency}{s.avgCost.toFixed(2)} → ล่าสุด {s.currency}{s.currentPrice.toFixed(2)}</span>
+                  <span className={`font-extrabold ${s.pnlAmount >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    {s.pnlAmount >= 0 ? "+" : ""}{s.currency}{s.pnlAmount.toLocaleString()} ({s.pnlPct >= 0 ? "+" : ""}{s.pnlPct}%)
+                  </span>
+                </div>
+                <p className="text-[11px] text-teal-300 leading-snug pt-1 border-t border-white/5">
+                  {s.holdingAlert}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* แถวพิเศษ: แสดงรายการหุ้นโปรดที่ปักหมุดไว้ */}
       {pinnedStocks.length > 0 && (
@@ -1156,8 +1668,185 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
   );
 }
 
-// หน้าตาราง Screener พร้อมคอลัมน์ "จังหวะซื้อ (ซื้อเลย vs รอย่อ)"
-function ScreenerView({ stocks, onSelectStock, favorites, onToggleFav }) {
+// 💼🕌 หน้าใหม่ (แท็บที่ 4): พอร์ตหุ้นที่ถืออยู่จริง & เครื่องคิดเลขชำระล้างเงินปันผลฮาลาล
+function MyPortfolioAndPurificationView({
+  stocks,
+  onSelectStock,
+  onOpenHoldingModal,
+  purificationLogs,
+  onAddPurificationLog,
+  onClearPurificationLogs,
+}) {
+  const heldStocks = useMemo(() => stocks.filter((s) => s.isHeld), [stocks]);
+
+  const summary = useMemo(() => {
+    const thHeld = heldStocks.filter((s) => s.market === "TH");
+    const usHeld = heldStocks.filter((s) => s.market === "US");
+
+    const thInvested = thHeld.reduce((acc, s) => acc + s.investedCapital, 0);
+    const thCurrent = thHeld.reduce((acc, s) => acc + s.currentMarketValue, 0);
+    const thPnl = thCurrent - thInvested;
+    const thPnlPct = thInvested > 0 ? (thPnl / thInvested) * 100 : 0;
+
+    const usInvested = usHeld.reduce((acc, s) => acc + s.investedCapital, 0);
+    const usCurrent = usHeld.reduce((acc, s) => acc + s.currentMarketValue, 0);
+    const usPnl = usCurrent - usInvested;
+    const usPnlPct = usInvested > 0 ? (usPnl / usInvested) * 100 : 0;
+
+    return { thInvested, thCurrent, thPnl, thPnlPct, usInvested, usCurrent, usPnl, usPnlPct };
+  }, [heldStocks]);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-2xl border border-white/10 p-5" style={{ backgroundColor: CARD }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-400 uppercase">🇹🇭 พอร์ตหุ้นไทยที่ถือจริง (THB)</span>
+            <span className="text-xs px-2 py-0.5 rounded bg-white/5 text-slate-300">
+              {heldStocks.filter((s) => s.market === "TH").length} บริษัท
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between mt-3">
+            <div>
+              <p className="text-[11px] text-slate-500">มูลค่าตลาดปัจจุบัน</p>
+              <p className="text-2xl font-extrabold text-white">฿{summary.thCurrent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-xs text-slate-400 mt-0.5">ต้นทุนรวม: ฿{summary.thInvested.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] text-slate-500">กำไร/ขาดทุนรวม</p>
+              <p className={`text-xl font-extrabold ${summary.thPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                {summary.thPnl >= 0 ? "+" : ""}฿{summary.thPnl.toFixed(2)}
+              </p>
+              <p className={`text-xs font-bold ${summary.thPnlPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                ({summary.thPnlPct >= 0 ? "+" : ""}{summary.thPnlPct.toFixed(2)}%)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 p-5" style={{ backgroundColor: CARD }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-400 uppercase">🇺🇸 พอร์ตหุ้นอเมริกาที่ถือจริง (USD)</span>
+            <span className="text-xs px-2 py-0.5 rounded bg-white/5 text-slate-300">
+              {heldStocks.filter((s) => s.market === "US").length} บริษัท
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between mt-3">
+            <div>
+              <p className="text-[11px] text-slate-500">มูลค่าตลาดปัจจุบัน</p>
+              <p className="text-2xl font-extrabold text-white">${summary.usCurrent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-xs text-slate-400 mt-0.5">ต้นทุนรวม: ${summary.usInvested.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] text-slate-500">กำไร/ขาดทุนรวม</p>
+              <p className={`text-xl font-extrabold ${summary.usPnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                {summary.usPnl >= 0 ? "+" : ""}${summary.usPnl.toFixed(2)}
+              </p>
+              <p className={`text-xs font-bold ${summary.usPnlPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                ({summary.usPnlPct >= 0 ? "+" : ""}{summary.usPnlPct.toFixed(2)}%)
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-white/5 p-5" style={{ backgroundColor: CARD }}>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div>
+            <h3 className="text-white font-bold text-base">💼 รายการหุ้นที่คุณซื้อถืออยู่จริง (Active Positions)</h3>
+            <p className="text-slate-400 text-xs">คลิกปุ่ม "+ บันทึกหุ้นเข้าพอร์ตเพิ่ม" เพื่ออัปเดตต้นทุนและจำนวนหุ้นของคุณ</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenHoldingModal(stocks[0])}
+            className="px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all"
+          >
+            + บันทึกหุ้นเข้าพอร์ตเพิ่ม
+          </button>
+        </div>
+
+        {heldStocks.length === 0 ? (
+          <div className="rounded-xl bg-[#090D16] border border-white/5 p-8 text-center space-y-2">
+            <p className="text-slate-300 font-semibold text-sm">ยังไม่มีรายการหุ้นที่บันทึกว่าถืออยู่จริง</p>
+            <p className="text-slate-500 text-xs">
+              คุณสามารถกดปุ่ม <strong>"💼 บันทึกว่าซื้อถืออยู่จริง"</strong> บนการ์ดหุ้นตัวไหนก็ได้ เพื่อเริ่มติดตามกำไร/ขาดทุนแบบ Real-time
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/5 bg-[#090D16]/60 text-left text-slate-400 text-xs uppercase">
+                  <th className="px-4 py-3 font-semibold">หุ้น</th>
+                  <th className="px-4 py-3 font-semibold">จำนวนที่ถือ</th>
+                  <th className="px-4 py-3 font-semibold">ทุนเฉลี่ย → ราคาปัจจุบัน</th>
+                  <th className="px-4 py-3 font-semibold">มูลค่าปัจจุบัน</th>
+                  <th className="px-4 py-3 font-semibold">กำไร / ขาดทุน (P/L)</th>
+                  <th className="px-4 py-3 font-semibold">คำแนะนำเพื่อน AI สำหรับคนมีของ</th>
+                  <th className="px-4 py-3 font-semibold"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {heldStocks.map((s) => (
+                  <tr
+                    key={s.ticker}
+                    onClick={() => onSelectStock(s.ticker)}
+                    className="border-b border-white/5 last:border-0 hover:bg-white/[0.03] cursor-pointer"
+                  >
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-1.5 font-bold text-white">
+                        {s.ticker} <MarketBadge market={s.market} />
+                      </div>
+                      <div className="text-xs text-slate-400">{s.companyName}</div>
+                    </td>
+                    <td className="px-4 py-3.5 font-bold text-white">{s.heldShares} หุ้น</td>
+                    <td className="px-4 py-3.5 text-xs">
+                      <span className="text-slate-300">{s.currency}{s.avgCost.toFixed(2)}</span>
+                      <span className="mx-1.5 text-slate-500">→</span>
+                      <span className="font-bold text-white">{s.currency}{s.currentPrice.toFixed(2)}</span>
+                    </td>
+                    <td className="px-4 py-3.5 font-bold text-white">
+                      {s.currency}{s.currentMarketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className={`font-extrabold ${s.pnlAmount >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {s.pnlAmount >= 0 ? "+" : ""}{s.currency}{s.pnlAmount.toLocaleString()} ({s.pnlPct >= 0 ? "+" : ""}{s.pnlPct}%)
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-xs text-teal-300 max-w-xs">{s.holdingAlert}</td>
+                    <td className="px-4 py-3.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenHoldingModal(s);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-slate-300"
+                      >
+                        แก้ไข
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <DividendPurificationBox
+        stocks={stocks}
+        defaultTicker={heldStocks[0]?.ticker || "AAPL"}
+        purificationLogs={purificationLogs}
+        onAddLog={onAddPurificationLog}
+        onClearLogs={onClearPurificationLogs}
+      />
+    </div>
+  );
+}
+
+// หน้าตาราง Screener พร้อมคอลัมน์ "จังหวะซื้อ (ซื้อเลย vs รอย่อ)" + ข้อมูลมูลค่าหนี้ครบถ้วนจาก App (6).jsx
+function ScreenerView({ stocks, onSelectStock, favorites, onToggleFav, onOpenHoldingModal }) {
   const [onlyHalal, setOnlyHalal] = useState(false);
   const [onlyFav, setOnlyFav] = useState(false);
   const [query, setQuery] = useState("");
@@ -1178,6 +1867,9 @@ function ScreenerView({ stocks, onSelectStock, favorites, onToggleFav }) {
       const bFav = favorites.includes(b.ticker) ? 1 : 0;
       if (aFav !== bFav) return bFav - aFav;
 
+      if (sortBy === "HELD_FIRST") {
+        if (a.isHeld !== b.isHeld) return a.isHeld ? -1 : 1;
+      }
       if (sortBy === "BUY_NOW_FIRST") {
         const order = { BUY_NOW: 1, WAIT_DIP: 2, AVOID: 3 };
         if (order[a.timingState] !== order[b.timingState]) {
@@ -1277,7 +1969,30 @@ function ScreenerView({ stocks, onSelectStock, favorites, onToggleFav }) {
                           <div className="text-[11px] text-slate-400">ซื้อได้ {s.recommendedShares} หุ้น</div>
                         </>
                       ) : (
-                        <span className="text-xs text-rose-400 font-medium">งดลงทุนเพิ่ม (0%)</span>
+                        <span className="text-xs text-rose-400 font-medium block">งดลงทุนเพิ่ม (0%)</span>
+                      )}
+                      {s.isHeld ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenHoldingModal(s);
+                          }}
+                          className={`mt-1 text-[11px] font-bold underline block ${s.pnlAmount >= 0 ? "text-emerald-300" : "text-rose-300"}`}
+                        >
+                          💼 ถือ {s.heldShares} หุ้น ({s.pnlPct >= 0 ? "+" : ""}{s.pnlPct}%)
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenHoldingModal(s);
+                          }}
+                          className="mt-1 text-[10px] text-slate-400 hover:text-indigo-300 underline block"
+                        >
+                          + บันทึกว่าซื้อถืออยู่
+                        </button>
                       )}
                     </td>
                     <td className="px-4 py-3.5">
@@ -1300,7 +2015,7 @@ function ScreenerView({ stocks, onSelectStock, favorites, onToggleFav }) {
                         )}
                       </div>
                       <div className="text-[10px] text-slate-500 mt-0.5">
-                        {s.totalAssets > 0 ? `${curr}${s.totalDebt}M / ${curr}${s.totalAssets}M` : "N/A"}
+                        {s.totalAssets > 0 ? `${curr}${s.totalDebt}M / ${curr}${s.totalAssets}M` : "N/A"} · ชำระปันผล ~{s.purificationRate}%
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-slate-500">
@@ -1325,7 +2040,7 @@ function ScreenerView({ stocks, onSelectStock, favorites, onToggleFav }) {
 }
 
 // หน้าสัญญาณซื้อขาย (Trading Signals)
-function SignalsView({ stocks, onSelectStock, favorites, onToggleFav }) {
+function SignalsView({ stocks, onSelectStock, favorites, onToggleFav, onOpenHoldingModal }) {
   const [filter, setFilter] = useState("All");
   const [marketFilter, setMarketFilter] = useState("ALL");
   const [onlyHalal, setOnlyHalal] = useState(false);
@@ -1358,6 +2073,9 @@ function SignalsView({ stocks, onSelectStock, favorites, onToggleFav }) {
       const bFav = favorites.includes(b.ticker) ? 1 : 0;
       if (aFav !== bFav) return bFav - aFav;
 
+      if (sortBy === "HELD_FIRST") {
+        if (a.isHeld !== b.isHeld) return a.isHeld ? -1 : 1;
+      }
       if (sortBy === "BUY_NOW_FIRST") {
         const order = { BUY_NOW: 1, WAIT_DIP: 2, AVOID: 3 };
         if (order[a.timingState] !== order[b.timingState]) {
@@ -1426,6 +2144,7 @@ function SignalsView({ stocks, onSelectStock, favorites, onToggleFav }) {
             onSelect={onSelectStock}
             isFav={favorites.includes(sig.ticker)}
             onToggleFav={() => onToggleFav(sig.ticker)}
+            onOpenHoldingModal={onOpenHoldingModal}
           />
         ))}
         {filtered.length === 0 && (
@@ -1438,7 +2157,17 @@ function SignalsView({ stocks, onSelectStock, favorites, onToggleFav }) {
   );
 }
 
-function StockDetailView({ stock, onBack, isFav, onToggleFav }) {
+function StockDetailView({
+  stock,
+  allStocks,
+  onBack,
+  isFav,
+  onToggleFav,
+  onOpenHoldingModal,
+  purificationLogs,
+  onAddPurificationLog,
+  onClearPurificationLogs,
+}) {
   const series = stock.chartSeries || [];
   const rationale = useMemo(() => buildRationale(stock), [stock]);
   const curr = stock.currency || "$";
@@ -1462,6 +2191,13 @@ function StockDetailView({ stock, onBack, isFav, onToggleFav }) {
             <span className="text-slate-400 font-semibold text-sm">({stock.ticker})</span>
             <MarketBadge market={stock.market} />
             <FavoriteButton isFav={isFav} onToggle={onToggleFav} size={16} />
+            <button
+              type="button"
+              onClick={() => onOpenHoldingModal(stock)}
+              className="px-3 py-1 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-200 text-xs font-bold transition-all"
+            >
+              {stock.isHeld ? `💼 ถืออยู่ ${stock.heldShares} หุ้น (${stock.pnlPct >= 0 ? "+" : ""}{stock.pnlPct}%) · แก้ไข` : "💼 + บันทึกว่าซื้อถืออยู่จริง"}
+            </button>
           </div>
           <div className="flex items-baseline gap-3 mt-1.5 flex-wrap">
             <span className="text-3xl font-extrabold text-white">{curr}{stock.currentPrice.toFixed(2)}</span>
@@ -1601,6 +2337,15 @@ function StockDetailView({ stock, onBack, isFav, onToggleFav }) {
         </div>
       </div>
 
+      {/* 🕌 เครื่องคิดเลขชำระล้างเงินปันผลฮาลาลของหุ้นตัวนี้ */}
+      <DividendPurificationBox
+        stocks={allStocks}
+        defaultTicker={stock.ticker}
+        purificationLogs={purificationLogs}
+        onAddLog={onAddPurificationLog}
+        onClearLogs={onClearPurificationLogs}
+      />
+
       {/* กล่องข้อมูลธุรกิจและความเสี่ยงฮาลาลจาก Gemini */}
       <div className="rounded-2xl border border-teal-500/25 bg-gradient-to-r from-teal-900/20 to-emerald-900/10 p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
@@ -1638,11 +2383,13 @@ const NAV = [
   { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
   { key: "signals", label: "Trading Signals", icon: Activity },
   { key: "screener", label: "Halal Screener", icon: ShieldCheck },
+  { key: "myportfolio", label: "Portfolio & Purify", icon: Wallet },
 ];
 
 export default function HalalDashboard() {
   const [view, setView] = useState("dashboard");
   const [selectedTicker, setSelectedTicker] = useState(null);
+  const [editingHoldingTicker, setEditingHoldingTicker] = useState(null);
   const [marketData, setMarketData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1667,10 +2414,68 @@ export default function HalalDashboard() {
     }
   });
 
+  // 💼 ระบบบันทึก "หุ้นที่ซื้อถืออยู่จริง" (localStorage)
+  const [holdings, setHoldings] = useState(() => {
+    try {
+      const saved = localStorage.getItem("halal_active_holdings");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // 🕌 ระบบบันทึกประวัติการชำระล้างเงินปันผลฮาลาล (localStorage)
+  const [purificationLogs, setPurificationLogs] = useState(() => {
+    try {
+      const saved = localStorage.getItem("halal_purification_logs");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const handleUpdatePortfolio = useCallback((nextPortfolio) => {
     setPortfolio(nextPortfolio);
     try {
       localStorage.setItem("halal_portfolio_cash", JSON.stringify(nextPortfolio));
+    } catch {}
+  }, []);
+
+  const handleSaveHolding = useCallback((ticker, shares, avgCost) => {
+    setHoldings((prev) => {
+      const next = { ...prev, [ticker]: { shares: Number(shares), avgCost: Number(avgCost) } };
+      try {
+        localStorage.setItem("halal_active_holdings", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleRemoveHolding = useCallback((ticker) => {
+    setHoldings((prev) => {
+      const next = { ...prev };
+      delete next[ticker];
+      try {
+        localStorage.setItem("halal_active_holdings", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleAddPurificationLog = useCallback((newLog) => {
+    setPurificationLogs((prev) => {
+      const next = [newLog, ...prev].slice(0, 30);
+      try {
+        localStorage.setItem("halal_purification_logs", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleClearPurificationLogs = useCallback(() => {
+    setPurificationLogs([]);
+    try {
+      localStorage.removeItem("halal_purification_logs");
     } catch {}
   }, []);
 
@@ -1713,13 +2518,15 @@ export default function HalalDashboard() {
 
   const analyzedStocks = useMemo(() => {
     if (!marketData) return [];
-    return marketData.stocks.map((s) => analyzeStock(s, portfolio));
-  }, [marketData, portfolio]);
+    return marketData.stocks.map((s) => analyzeStock(s, portfolio, holdings));
+  }, [marketData, portfolio, holdings]);
 
   const quickStats = useMemo(() => {
     if (!analyzedStocks.length) return [];
     return buildQuickStats(analyzedStocks, favorites.length);
   }, [analyzedStocks, favorites.length]);
+
+  const heldCount = useMemo(() => analyzedStocks.filter((s) => s.isHeld).length, [analyzedStocks]);
 
   const liveStatus = getLiveMarketStatus();
 
@@ -1727,8 +2534,11 @@ export default function HalalDashboard() {
     dashboard: "Market Overview & AI Buddy Verdict",
     screener: "Halal Compliance & Buy Timing Screener",
     signals: "Active Trading Signals & Buddy Advice",
+    myportfolio: "My Active Positions & Halal Dividend Purification",
   };
   const selectedStock = selectedTicker ? analyzedStocks.find((s) => s.ticker === selectedTicker) : null;
+  const editingStock = editingHoldingTicker ? analyzedStocks.find((s) => s.ticker === editingHoldingTicker) : null;
+
   const handleSelectStock = (ticker) => setSelectedTicker(ticker);
   const handleNavClick = (key) => { setSelectedTicker(null); setView(key); };
 
@@ -1765,7 +2575,15 @@ export default function HalalDashboard() {
                     : "text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent"
                 }`}
               >
-                <span className="flex items-center gap-2.5"><Icon size={16} />{item.label}</span>
+                <span className="flex items-center gap-2.5">
+                  <Icon size={16} />
+                  {item.label}
+                  {item.key === "myportfolio" && heldCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500/30 text-emerald-200">
+                      {heldCount}
+                    </span>
+                  )}
+                </span>
                 <ChevronRight size={14} className={`hidden lg:block transition-all ${active ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-1 group-hover:opacity-40 group-hover:translate-x-0"}`} />
               </button>
             );
@@ -1777,7 +2595,7 @@ export default function HalalDashboard() {
             <Sparkles size={13} /> AI Buddy Coach
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            เพื่อนคู่หู AI ช่วยฟันธงทุกตัวว่า "ซื้อตอนนี้ได้เลย" หรือ "รอให้ย่อลงมาก่อน" พร้อมคำนวณจำนวนหุ้นจากเงินในมือ
+            เพื่อนคู่หู AI ช่วยฟันธงทุกตัวว่า "ซื้อตอนนี้ได้เลย" หรือ "รอให้ย่อลงมาก่อน" พร้อมติดตาม P/L และชำระปันผลฮาลาล
           </p>
         </div>
       </aside>
@@ -1791,6 +2609,7 @@ export default function HalalDashboard() {
                 {view === "dashboard" && "เพื่อนคู่หู AI ช่วยชี้เป้าว่าตัวไหนซื้อตอนนี้ได้เลย หรือตัวไหนต้องรอให้ย่อลงมาก่อน"}
                 {view === "screener" && "ตารางเทียบจังหวะเข้าซื้อ (ซื้อเลย vs รอย่อ) ความคุ้มค่า (RRR) และจำนวนเงินที่ควรลง"}
                 {view === "signals" && "การ์ดสัญญาณเทรดพร้อมคำแนะนำภาษาเพื่อน บอกจุดตั้งรับและขนาดไม้รายตัว"}
+                {view === "myportfolio" && "สรุปกำไร/ขาดทุนหุ้นที่ถืออยู่ในพอร์ตจริง และเครื่องคิดเลขชำระล้างเงินปันผลฮาลาล (AAOIFI)"}
               </p>
             </div>
 
@@ -1813,7 +2632,12 @@ export default function HalalDashboard() {
         )}
 
         {!isLoading && !error && (
-          <PortfolioCashBar portfolio={portfolio} onUpdatePortfolio={handleUpdatePortfolio} />
+          <PortfolioCashBar
+            portfolio={portfolio}
+            onUpdatePortfolio={handleUpdatePortfolio}
+            heldCount={heldCount}
+            onOpenPortfolioTab={() => handleNavClick("myportfolio")}
+          />
         )}
 
         {isLoading && !marketData && <DashboardSkeleton />}
@@ -1823,9 +2647,14 @@ export default function HalalDashboard() {
             {selectedStock ? (
               <StockDetailView
                 stock={selectedStock}
+                allStocks={analyzedStocks}
                 onBack={() => setSelectedTicker(null)}
                 isFav={favorites.includes(selectedStock.ticker)}
                 onToggleFav={() => toggleFavorite(selectedStock.ticker)}
+                onOpenHoldingModal={(s) => setEditingHoldingTicker(s.ticker)}
+                purificationLogs={purificationLogs}
+                onAddPurificationLog={handleAddPurificationLog}
+                onClearPurificationLogs={handleClearPurificationLogs}
               />
             ) : (
               <>
@@ -1839,6 +2668,7 @@ export default function HalalDashboard() {
                     onNavigateSignals={() => handleNavClick("signals")}
                     favorites={favorites}
                     onToggleFav={toggleFavorite}
+                    onOpenHoldingModal={(s) => setEditingHoldingTicker(s.ticker)}
                   />
                 )}
                 {view === "screener" && (
@@ -1847,6 +2677,7 @@ export default function HalalDashboard() {
                     onSelectStock={handleSelectStock}
                     favorites={favorites}
                     onToggleFav={toggleFavorite}
+                    onOpenHoldingModal={(s) => setEditingHoldingTicker(s.ticker)}
                   />
                 )}
                 {view === "signals" && (
@@ -1855,11 +2686,32 @@ export default function HalalDashboard() {
                     onSelectStock={handleSelectStock}
                     favorites={favorites}
                     onToggleFav={toggleFavorite}
+                    onOpenHoldingModal={(s) => setEditingHoldingTicker(s.ticker)}
+                  />
+                )}
+                {view === "myportfolio" && (
+                  <MyPortfolioAndPurificationView
+                    stocks={analyzedStocks}
+                    onSelectStock={handleSelectStock}
+                    onOpenHoldingModal={(s) => setEditingHoldingTicker(s.ticker)}
+                    purificationLogs={purificationLogs}
+                    onAddPurificationLog={handleAddPurificationLog}
+                    onClearPurificationLogs={handleClearPurificationLogs}
                   />
                 )}
               </>
             )}
           </>
+        )}
+
+        {/* ป๊อปอัปบันทึก/แก้ไขหุ้นที่ถืออยู่จริง */}
+        {editingStock && (
+          <HoldingEditorModal
+            stock={editingStock}
+            onClose={() => setEditingHoldingTicker(null)}
+            onSaveHolding={handleSaveHolding}
+            onRemoveHolding={handleRemoveHolding}
+          />
         )}
       </main>
     </div>
