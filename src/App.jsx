@@ -84,7 +84,7 @@ async function fetchMarketData() {
           debtRatio: realData.debtRatio || 0,
           totalDebt: realData.totalDebt || 0,
           totalAssets: realData.totalAssets || 0,
-          aiBusiness: realData.aiInsight?.business || "ระบบกำลังรวบรวมข้อมูลธุรกิจ โปรดรอสักครู่...",
+          aiBusiness: realData.aiInsight?.business || "กำลังพัฒนาและขยายฐานรายได้หลักในกลุ่มอุตสาหกรรมอย่างต่อเนื่อง",
           aiRisk: realData.aiInsight?.halalRisk || "กำลังให้ AI ประเมินความเสี่ยงฮาลาล...",
         };
       }
@@ -102,7 +102,7 @@ async function fetchMarketData() {
 }
 
 // ===========================================================================
-// BUSINESS LOGIC + POSITION SIZING & RRR ENGINE
+// BUSINESS LOGIC + POSITION SIZING, RRR & BUDDY AI COACH ENGINE
 // ===========================================================================
 
 const HALAL_DEBT_THRESHOLD = 33;
@@ -120,8 +120,9 @@ function getSignal(rsi) {
   return { status: "Sell", tone: "sell", rank: 4 };
 }
 
-// 🎯 คำนวณจุดตั้งซื้อที่ดีที่สุด (Best Limit Buy), Stop-Loss, Target, RRR และขนาดเงินลงทุน
+// 🎯 คำนวณจุดตั้งซื้อที่ดีที่สุด, RRR, ขนาดไม้ลงทุน และ "ข้อความเพื่อนคู่หูฟันธง (Buddy Talk)"
 function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio) {
+  const curr = stock.currency || "$";
   const price = stock.currentPrice || 0;
   const support = stock.supportLevel > 0 ? stock.supportLevel : price * 0.95;
   const resistance = stock.resistanceLevel > price ? stock.resistanceLevel : price * 1.08;
@@ -140,23 +141,7 @@ function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio) {
     ? Math.max(0, Number((((price - bestBuyPrice) / price) * 100).toFixed(1)))
     : 0;
 
-  let entryAdvice = "เคาะซื้อที่ราคาตลาดได้ทันที";
-  let isBuyNowZone = true;
-  if (!halal) {
-    entryAdvice = "งดลงทุน (หนี้เกินเกณฑ์ฮาลาล)";
-    isBuyNowZone = false;
-  } else if (signalStatus === "Sell" || stock.rsi >= 70) {
-    entryAdvice = `โซนแพง/ระวังแรงขาย รอรับที่ ${stock.currency || "$"}${bestBuyPrice.toFixed(2)}`;
-    isBuyNowZone = false;
-  } else if (entryDiscountPct <= 1.5 || stock.rsi <= 35) {
-    entryAdvice = "อยู่ในโซนเข้าซื้อได้เปรียบ (ตั้งซื้อได้ทันที)";
-    isBuyNowZone = true;
-  } else {
-    entryAdvice = `แนะนำตั้ง Limit รอรับโซนย่อ (-${entryDiscountPct}%)`;
-    isBuyNowZone = false;
-  }
-
-  // 2. คำนวณ Stop-Loss และ Target Price ที่สะท้อนความเสี่ยงจริง
+  // 2. คำนวณ Stop-Loss และ Target Price
   const structuralStop = support * 0.985;
   const rawStop = price > 0
     ? Math.min(price * 0.98, Math.max(price * 0.92, structuralStop))
@@ -199,7 +184,38 @@ function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio) {
     worthTone = "poor";
   }
 
-  // 4. คำนวณปริมาณเงินที่ควรลง (Position Sizing) จากเงินสดในมือของผู้ใช้
+  // 4. 🚦 ฟันธงจังหวะเข้าซื้อ: "ซื้อตอนนี้เลย (BUY_NOW)" vs "รอลงกว่านี้ (WAIT_DIP)" vs "อย่าเพิ่งซื้อ (AVOID)"
+  let timingState = "WAIT_DIP"; // BUY_NOW | WAIT_DIP | AVOID
+  let timingBadge = "";
+  let entryAdvice = "";
+  let isBuyNowZone = false;
+
+  if (!halal) {
+    timingState = "AVOID";
+    timingBadge = "🔴 งดลงทุน (หนี้เกินฮาลาล 33%)";
+    entryAdvice = "สัดส่วนหนี้สินเกินเกณฑ์ 33%";
+    isBuyNowZone = false;
+  } else if (signalStatus === "Sell" || stock.rsi >= 70) {
+    timingState = "AVOID";
+    timingBadge = `🔴 อย่าเพิ่งซื้อ! รอลงมาที่ ${curr}${bestBuyPrice.toFixed(2)}`;
+    entryAdvice = `ราคาตึงจัด รอปรับฐานลงอีก -${entryDiscountPct}%`;
+    isBuyNowZone = false;
+  } else if (
+    (entryDiscountPct <= 1.8 || stock.rsi <= 35 || (signalStatus === "Buy" && rrr >= 2.0)) &&
+    rrr >= 1.3
+  ) {
+    timingState = "BUY_NOW";
+    timingBadge = "🟢 ซื้อตอนนี้ได้เลย! (ไม่ต้องรอ)";
+    entryAdvice = "ราคาอยู่ในโซนได้เปรียบ เคาะซื้อได้ทันที";
+    isBuyNowZone = true;
+  } else {
+    timingState = "WAIT_DIP";
+    timingBadge = `🟡 รอลงกว่านี้! (รออีก -${entryDiscountPct}%)`;
+    entryAdvice = `ตั้ง Limit รอช้อนที่ ${curr}${bestBuyPrice.toFixed(2)} (ย่อ -${entryDiscountPct}%)`;
+    isBuyNowZone = false;
+  }
+
+  // 5. คำนวณปริมาณเงินที่ควรลง (Position Sizing) จากเงินสดในมือของผู้ใช้
   const isTH = stock.market === "TH";
   const availableCash = isTH
     ? Number(portfolio?.thCash || 0)
@@ -231,6 +247,21 @@ function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio) {
   const expectedProfitMoney = Math.round(allocAmount * (cleanUpside / 100));
   const maxLossMoney = Math.round(allocAmount * (cleanDownside / 100));
 
+  // 6. 🗣️ สร้างข้อความ "เพื่อนคู่หูฟันธง (Buddy AI Talk)" ผสมสตอรี่ธุรกิจ + จังหวะราคา
+  const cleanName = stock.ticker.replace(".BK", "");
+  const bizShort = (stock.aiBusiness || "ธุรกิจหลักกำลังเติบโตได้ดี").replace(/^ธุรกิจ:\s*/i, "").trim();
+  let buddyTalk = "";
+
+  if (!halal) {
+    buddyTalk = `ข้าม ${cleanName} ไปก่อนเลยเพื่อน! ตอนนี้สัดส่วนหนี้สินอยู่ที่ ${Number(stock.debtRatio).toFixed(1)}% ซึ่งเกินเพดานฮาลาล 33% แม้ธุรกิจจะเกี่ยวกับ${bizShort} แต่เรามีตัวอื่นที่คลีนและคุ้มกว่าเยอะ!`;
+  } else if (timingState === "BUY_NOW") {
+    buddyTalk = `ซื้อเลยตัวนี้เพื่อน! ${cleanName} ราคา ${curr}${price.toFixed(2)} ย่อลงมาอยู่ในจุดเข้าซื้อที่ได้เปรียบสุดๆ (RSI ${stock.rsi} · ความคุ้มค่า RRR 1:${rrr}) แถมสตอรี่ธุรกิจกำลังมาแรง: ${bizShort} จัดเข้าพอร์ตตอนนี้ได้เลยประมาณ ${curr}${allocAmount.toLocaleString()} (${recommendedShares} หุ้น) ไม่ต้องรอ!`;
+  } else if (timingState === "WAIT_DIP") {
+    buddyTalk = `อย่าเพิ่งรีบเคาะซื้อ ${cleanName} ที่ราคา ${curr}${price.toFixed(2)} ตอนนี้นะเพื่อน! ถึงข่าวและพื้นฐานธุรกิจจะดีมาก (${bizShort}) แต่ราคานี้วิ่งขึ้นมาสูงกว่าจุดได้เปรียบแล้ว อดใจรอให้มันย่อลงมาแถวๆ ${curr}${bestBuyPrice.toFixed(2)} (รอลงอีก -${entryDiscountPct}%) ค่อยตั้ง Limit ช้อนซื้อด้วยงบ ${curr}${allocAmount.toLocaleString()} จะปลอดภัยกว่าเยอะ!`;
+  } else {
+    buddyTalk = `เบรกมือด่วนเพื่อน! อย่าเพิ่งไล่ราคา ${cleanName} ตอนนี้เด็ดขาด ถึงธุรกิจจะดูดี (${bizShort}) แต่ราคา ${curr}${price.toFixed(2)} พุ่งขึ้นมาโซนตึงจัด (RSI ${stock.rsi}) เสี่ยงโดนเทขายทำกำไร รอให้มันพักตัวลงมาแถวๆ ${curr}${bestBuyPrice.toFixed(2)} ก่อนค่อยว่ากัน!`;
+  }
+
   return {
     stopLoss: cleanStop,
     targetPrice: cleanTarget,
@@ -241,6 +272,9 @@ function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio) {
     entryDiscountPct,
     entryAdvice,
     isBuyNowZone,
+    timingState,
+    timingBadge,
+    buddyTalk,
     rrr,
     bestLimitRrr,
     worthLabel,
@@ -264,9 +298,7 @@ function analyzeStock(stock, portfolio) {
 
 function buildQuickStats(analyzedStocks, favCount) {
   const halalCount = analyzedStocks.filter((s) => s.halal).length;
-  const highWorthCount = analyzedStocks.filter(
-    (s) => s.halal && s.rrr >= 1.5 && s.rsi < 60
-  ).length;
+  const buyNowCount = analyzedStocks.filter((s) => s.timingState === "BUY_NOW").length;
   const buyCount = analyzedStocks.filter(
     (s) => s.status === "Buy" || s.status === "Strong Buy"
   ).length;
@@ -275,8 +307,8 @@ function buildQuickStats(analyzedStocks, favCount) {
 
   return [
     { label: "Halal Universe", value: `${halalCount}/${analyzedStocks.length}`, sub: `Avg. Debt ${avgDebtRatio.toFixed(1)}% (<33%)`, icon: ShieldCheck },
+    { label: "Buy Right Now", value: `${buyNowCount}`, sub: "ซื้อตอนนี้ได้เลย ไม่ต้องรอกราฟย่อ", icon: Target },
     { label: "Active Buy Signals", value: `${buyCount}`, sub: "Strong Buy & Buy setups", icon: Activity },
-    { label: "High RRR Setups", value: `${highWorthCount}`, sub: "คุ้มค่าลงทุน (RRR ≥ 1:1.5)", icon: Target },
     { label: "Pinned Favorites", value: `${favCount}`, sub: "your custom watchlist", icon: Star },
   ];
 }
@@ -285,7 +317,7 @@ function buildRationale(stock) {
   const curr = stock.currency || "$";
   const rsiState = stock.rsi <= 30 ? "Oversold (โซนขายมากเกินไป)" : stock.rsi >= 70 ? "Overbought (โซนซื้อมากเกินไป)" : "Neutral (แกว่งตัวสะสมพลัง)";
 
-  const sentence1 = `ค่า RSI ปัจจุบันอยู่ที่ ${stock.rsi} บ่งชี้สภาวะ ${rsiState} โดยราคาเคลื่อนไหวอยู่ที่ ${stock.rangePos}% ของกรอบราคา 30 วัน`;
+  const sentence1 = `ฟันธงจังหวะเข้าซื้อ: ${stock.timingBadge} (RSI ปัจจุบันอยู่ที่ ${stock.rsi} - ${rsiState})`;
   const sentence2 = `จุดตั้งซื้อที่ดีที่สุด (Optimal Limit Buy) อยู่ที่ ${curr}${stock.bestBuyPrice.toFixed(2)} (${stock.entryAdvice})`;
   const sentence3 = `ความคุ้มค่าในการลงทุนอยู่ที่ RRR 1 : ${stock.rrr} (เป้าทำกำไร ${curr}${stock.targetPrice.toFixed(2)} [+${stock.upsidePct}%] เทียบจุดตัดขาดทุน ${curr}${stock.stopLoss.toFixed(2)} [-${stock.downsidePct}%])`;
   const sentence4 = stock.allocPct > 0
@@ -332,6 +364,20 @@ function Pill({ children, tone = "neutral" }) {
   );
 }
 
+// ป้ายฟันธงจังหวะเข้าซื้อ: ซื้อตอนนี้เลย vs รอลงกว่านี้
+function ActionTimingBadge({ timingState, timingBadge }) {
+  const styleMap = {
+    BUY_NOW: "bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]",
+    WAIT_DIP: "bg-yellow-500/20 text-yellow-300 border-yellow-400/50",
+    AVOID: "bg-rose-500/20 text-rose-300 border-rose-400/50",
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold border ${styleMap[timingState] || styleMap.WAIT_DIP}`}>
+      {timingBadge}
+    </span>
+  );
+}
+
 // ป้ายแสดงความคุ้มค่าในการลงทุน (RRR Worthiness Badge)
 function WorthinessBadge({ worthLabel, worthTone }) {
   const toneMap = {
@@ -352,7 +398,7 @@ function WorthinessBadge({ worthLabel, worthTone }) {
   );
 }
 
-// 🟡 ปรับป้ายสถานะ HOLD ให้เป็นสีเหลืองชัดเจนตามที่ต้องการ
+// 🟡 ป้ายสถานะ HOLD เป็นสีเหลืองชัดเจน
 function StatusBadge({ status }) {
   if (status === "Strong Buy") {
     return (
@@ -375,7 +421,6 @@ function StatusBadge({ status }) {
       </span>
     );
   }
-  // 🟡 สถานะ HOLD เป็นสีเหลืองสว่าง
   return (
     <span className="inline-flex items-center gap-1.5 rounded-lg bg-yellow-500/20 border border-yellow-400/50 px-2.5 py-1 text-xs font-bold text-yellow-300 shadow-[0_0_10px_rgba(234,179,8,0.18)]">
       <Minus size={13} /> HOLD
@@ -435,13 +480,12 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio }) {
               </span>
             </div>
             <p className="text-slate-400 text-xs mt-0.5">
-              พิมพ์แก้จำนวนเงินในมือได้ตลอดเวลา ระบบจะคำนวณจำนวนเงินและจำนวนหุ้นที่ควรซื้อในแต่ละการ์ดให้ทันที
+              พิมพ์แก้จำนวนเงินในมือได้ตลอดเวลา เพื่อน AI จะคำนวณจุดตั้งซื้อและจำนวนหุ้นที่ควรลงให้ทันที
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 xl:w-auto">
-          {/* ช่องกรอกเงินสดพอร์ตหุ้นไทย (บาท) */}
           <div className="bg-[#090D16] border border-white/10 rounded-xl px-3.5 py-2 focus-within:border-emerald-500/50 transition-all">
             <label className="text-[10px] text-slate-400 uppercase flex items-center justify-between">
               <span>🇹🇭 งบหุ้นไทยในมือ (฿)</span>
@@ -460,7 +504,6 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio }) {
             </div>
           </div>
 
-          {/* ช่องกรอกเงินสดพอร์ตหุ้นอเมริกา (ดอลลาร์) */}
           <div className="bg-[#090D16] border border-white/10 rounded-xl px-3.5 py-2 focus-within:border-emerald-500/50 transition-all">
             <label className="text-[10px] text-slate-400 uppercase flex items-center justify-between">
               <span>🇺🇸 งบหุ้นอเมริกาในมือ ($)</span>
@@ -479,7 +522,6 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio }) {
             </div>
           </div>
 
-          {/* ช่องตั้งค่า % การแบ่งไม้ลงทุนมาตรฐาน */}
           <div className="bg-[#090D16] border border-white/10 rounded-xl px-3.5 py-2 focus-within:border-emerald-500/50 transition-all">
             <label className="text-[10px] text-slate-400 uppercase flex items-center justify-between">
               <span>⚖️ ขนาดไม้มาตรฐาน (%)</span>
@@ -551,7 +593,6 @@ function RsiGauge({ rsi }) {
   );
 }
 
-// หลอดวัดตำแหน่งราคาเทียบแนวรับ-แนวต้านบนการ์ดหุ้น
 function PriceRangeBar({ stock }) {
   const curr = stock.currency || "$";
   return (
@@ -596,7 +637,6 @@ function InteractiveChart({ data, xKey, yKey, height = 256, gradientId, referenc
   );
 }
 
-// แผงควบคุมการค้นหา กรองตลาด กรองหุ้นโปรด และเรียงลำดับ
 function ControlToolbar({
   query, onQueryChange,
   marketFilter, onMarketFilterChange,
@@ -660,6 +700,7 @@ function ControlToolbar({
             onChange={(e) => onSortChange(e.target.value)}
             className="bg-transparent text-xs font-medium text-white outline-none cursor-pointer"
           >
+            <option value="BUY_NOW_FIRST" className="bg-[#131824]">ซื้อตอนนี้ได้เลยก่อน (Buy Now)</option>
             <option value="RRR_DESC" className="bg-[#131824]">ความคุ้มค่า (RRR) สูงสุด</option>
             <option value="RSI_ASC" className="bg-[#131824]">RSI ต่ำไปสูง (น่าช้อนซื้อ)</option>
             <option value="UPSIDE_DESC" className="bg-[#131824]">เป้ากำไร (Upside %) สูงสุด</option>
@@ -687,7 +728,7 @@ function ControlToolbar({
   );
 }
 
-// การ์ดหุ้นพร้อมโทนสีแยกตามสัญญาณ (Strong Buy / Buy = เขียว, Hold = เหลือง, Sell = แดง)
+// การ์ดหุ้นพร้อมป้าย "ซื้อตอนนี้ vs รอลงกว่านี้" และกล่อง "💬 เพื่อนคู่หูฟันธง (AI Buddy Talk)"
 function StockCard({ stock, onSelect, isFav, onToggleFav }) {
   const curr = stock.currency || "$";
   const isPositive = stock.change >= 0;
@@ -698,11 +739,17 @@ function StockCard({ stock, onSelect, isFav, onToggleFav }) {
   } else if (stock.status === "Buy") {
     cardToneClasses = "border-emerald-500/25 hover:border-emerald-500/50 bg-gradient-to-b from-[#131D26] to-[#131824]";
   } else if (stock.status === "Hold") {
-    // 🟡 โทนสีเหลืองสำหรับการ์ดที่มีสถานะ Hold
     cardToneClasses = "border-yellow-500/35 hover:border-yellow-400/70 bg-gradient-to-b from-[#221F14] via-[#131824] to-yellow-950/15 shadow-[0_0_18px_rgba(234,179,8,0.06)]";
   } else if (stock.status === "Sell") {
     cardToneClasses = "border-rose-500/35 hover:border-rose-400/60 bg-gradient-to-b from-[#221520] via-[#131824] to-rose-950/15";
   }
+
+  const buddyBoxTone =
+    stock.timingState === "BUY_NOW"
+      ? "bg-emerald-950/30 border-emerald-500/35 text-emerald-100"
+      : stock.timingState === "WAIT_DIP"
+      ? "bg-amber-950/25 border-yellow-500/35 text-amber-100"
+      : "bg-rose-950/25 border-rose-500/35 text-rose-100";
 
   return (
     <div
@@ -754,9 +801,14 @@ function StockCard({ stock, onSelect, isFav, onToggleFav }) {
           </div>
         </div>
 
-        {/* 🎯 กล่อง: ราคาที่ควรตั้งซื้อที่สุด (Best Limit Buy) + จำนวนเงินที่ควรลง */}
+        {/* 🚦 กล่องฟันธงจังหวะซื้อ: ซื้อตอนนี้เลย vs รอลงกว่านี้ + จำนวนเงินที่ควรลง */}
         <div className="mt-3 rounded-xl bg-[#090D16]/90 border border-sky-500/25 p-3 space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-[10px] text-slate-400 font-semibold uppercase">จังหวะเข้าซื้อ:</span>
+            <ActionTimingBadge timingState={stock.timingState} timingBadge={stock.timingBadge} />
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
             <div>
               <p className="text-[10px] text-sky-400 font-bold uppercase tracking-wide">
                 🎯 ราคาที่ควรตั้งซื้อ (Best Limit Buy)
@@ -768,7 +820,7 @@ function StockCard({ stock, onSelect, isFav, onToggleFav }) {
                 {curr}{stock.bestBuyPrice.toFixed(2)}
               </span>
               {stock.entryDiscountPct > 0 && (
-                <p className="text-[10px] text-emerald-400">ย่อลง -{stock.entryDiscountPct}%</p>
+                <p className="text-[10px] text-yellow-300 font-semibold">รอลงอีก -{stock.entryDiscountPct}%</p>
               )}
             </div>
           </div>
@@ -820,17 +872,19 @@ function StockCard({ stock, onSelect, isFav, onToggleFav }) {
         <PriceRangeBar stock={stock} />
       </div>
 
-      {/* กล่องพรีวิวสรุป AI ด้านล่างการ์ด */}
-      <div className="mt-3.5 pt-3 border-t border-white/5 flex items-start justify-between gap-2">
-        <div className="flex items-start gap-1.5 min-w-0">
-          <Sparkles size={13} className="text-teal-400 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-slate-400 truncate">
-            {stock.aiBusiness}
-          </p>
+      {/* 🗣️ กล่องใหม่: เพื่อนคู่หูฟันธง (AI Buddy Talk) บอกตรงๆ ว่าซื้อเลยหรือรอลงกว่านี้ */}
+      <div className={`mt-3.5 p-3 rounded-xl border transition-all ${buddyBoxTone}`}>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1.5 text-teal-300">
+            <Sparkles size={12} /> 🗣️ เพื่อนคู่หู AI กระซิบบอก
+          </span>
+          <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-0.5">
+            ดูกราฟ <ChevronRight size={12} />
+          </span>
         </div>
-        <span className="text-[11px] text-emerald-400 font-medium shrink-0 flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
-          แผนเทรด <ChevronRight size={13} />
-        </span>
+        <p className="text-[11px] leading-relaxed font-medium">
+          {stock.buddyTalk}
+        </p>
       </div>
     </div>
   );
@@ -876,7 +930,12 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
   const topSetups = useMemo(() => {
     return [...stocks]
       .filter((s) => s.halal && s.currentPrice > 0)
-      .sort((a, b) => b.rrr - a.rrr || a.rsi - b.rsi)
+      .sort((a, b) => {
+        const aNow = a.timingState === "BUY_NOW" ? 1 : 0;
+        const bNow = b.timingState === "BUY_NOW" ? 1 : 0;
+        if (aNow !== bNow) return bNow - aNow;
+        return b.rrr - a.rrr || a.rsi - b.rsi;
+      })
       .slice(0, 4);
   }, [stocks]);
 
@@ -926,22 +985,22 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
               <div
                 key={s.ticker}
                 onClick={() => onSelectStock(s.ticker)}
-                className="p-3.5 rounded-xl bg-[#090D16]/90 border border-amber-500/25 hover:border-amber-400 transition-all cursor-pointer flex items-center justify-between"
+                className="p-3.5 rounded-xl bg-[#090D16]/90 border border-amber-500/25 hover:border-amber-400 transition-all cursor-pointer flex flex-col justify-between gap-2"
               >
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-white text-sm">{s.ticker}</span>
-                    <MarketBadge market={s.market} />
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-white text-sm">{s.ticker}</span>
+                      <MarketBadge market={s.market} />
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1">
+                      ราคา: <strong>{s.currency}{s.currentPrice.toFixed(2)}</strong> · ตั้งรับ: <strong className="text-sky-400">{s.currency}{s.bestBuyPrice.toFixed(2)}</strong>
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-300 mt-1">
-                    ราคา: <strong>{s.currency}{s.currentPrice.toFixed(2)}</strong> · ตั้งซื้อ: <strong className="text-sky-400">{s.currency}{s.bestBuyPrice.toFixed(2)}</strong>
-                  </p>
-                  <p className="text-[11px] text-emerald-400 mt-0.5">
-                    งบแนะนำ: {s.currency}{s.allocAmount.toLocaleString()} ({s.recommendedShares} หุ้น)
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-1.5">
                   <FavoriteButton isFav={true} onToggle={() => onToggleFav(s.ticker)} size={13} />
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                  <ActionTimingBadge timingState={s.timingState} timingBadge={s.timingBadge} />
                   <StatusBadge status={s.status} />
                 </div>
               </div>
@@ -959,9 +1018,7 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-white font-bold text-base">{hero.companyName}</h3>
                   <MarketBadge market={hero.market} />
-                  <Pill tone={hero.halal ? "halal" : "nonhalal"}>
-                    <ShieldCheck size={12} /> {hero.label}
-                  </Pill>
+                  <ActionTimingBadge timingState={hero.timingState} timingBadge={hero.timingBadge} />
                   <WorthinessBadge worthLabel={hero.worthLabel} worthTone={hero.worthTone} />
                   <FavoriteButton
                     isFav={favorites.includes(hero.ticker)}
@@ -1005,32 +1062,35 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
               data={hero.chartSeries && hero.chartSeries.length > 0 ? hero.chartSeries : chartSeries}
               xKey="t"
               yKey="price"
-              height={250}
+              height={240}
               gradientId="priceFill"
               currency={heroCurr}
             />
           </div>
 
-          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-slate-400">
-            <span className="truncate max-w-md"><strong className="text-teal-400">AI สรุป:</strong> {hero.aiBusiness}</span>
+          <div className="mt-4 p-3.5 rounded-xl bg-[#090D16] border border-teal-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <p className="text-slate-200 leading-relaxed">
+              <strong className="text-teal-400 mr-1.5">🗣️ เพื่อนคู่หูบอก:</strong>
+              {hero.buddyTalk}
+            </p>
             <button
               onClick={() => onSelectStock(hero.ticker)}
-              className="text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 shrink-0"
+              className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 shrink-0"
             >
-              ดูแผนตั้งซื้อเจาะลึก <ChevronRight size={14} />
+              ดูแผนเจาะลึก <ChevronRight size={14} />
             </button>
           </div>
         </div>
 
-        {/* กล่องคัดหุ้นที่คุ้มค่าลงทุนที่สุดประจำวัน (Top RRR Setups) */}
+        {/* กล่องคัดหุ้นพร้อมลุย & คุ้มค่าที่สุดประจำวัน */}
         <div className="rounded-2xl border border-white/5 p-5 flex flex-col justify-between" style={{ backgroundColor: CARD }}>
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-white font-bold text-sm flex items-center gap-1.5">
-                  <Sparkles size={15} className="text-emerald-400" /> หุ้นคุ้มค่าลงทุนสูงสุดวันนี้
+                  <Sparkles size={15} className="text-emerald-400" /> หุ้นน่าช้อน & คุ้มค่าสูงสุดวันนี้
                 </h3>
-                <p className="text-slate-500 text-xs">คัดจากอัตราส่วนกำไรต่อความเสี่ยง (RRR) สูงสุด</p>
+                <p className="text-slate-500 text-xs">จัดอันดับตัวที่ซื้อได้เลยและ RRR สูงสุด</p>
               </div>
               <button
                 onClick={onNavigateSignals}
@@ -1045,9 +1105,9 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
                 <div
                   key={s.ticker}
                   onClick={() => onSelectStock(s.ticker)}
-                  className="p-3 rounded-xl bg-[#090D16] border border-white/5 hover:border-emerald-500/40 transition-all cursor-pointer flex items-center justify-between"
+                  className="p-3 rounded-xl bg-[#090D16] border border-white/5 hover:border-emerald-500/40 transition-all cursor-pointer flex flex-col gap-1.5"
                 >
-                  <div>
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-white text-sm">{s.ticker}</span>
                       <MarketBadge market={s.market} />
@@ -1055,15 +1115,13 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
                         RRR 1:{s.rrr}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      ตั้งซื้อ <strong className="text-sky-400">{s.currency}{s.bestBuyPrice.toFixed(2)}</strong> · ลง <strong className="text-emerald-400">{s.currency}{s.allocAmount.toLocaleString()}</strong>
-                    </p>
+                    <span className="text-sm font-bold text-white">{s.currency}{s.currentPrice.toFixed(2)}</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-white">{s.currency}{s.currentPrice.toFixed(2)}</p>
-                    <div className="mt-1">
-                      <StatusBadge status={s.status} />
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <ActionTimingBadge timingState={s.timingState} timingBadge={s.timingBadge} />
+                    <span className="text-[11px] text-slate-400">
+                      ตั้งรับ <strong className="text-sky-400">{s.currency}{s.bestBuyPrice.toFixed(2)}</strong>
+                    </span>
                   </div>
                 </div>
               ))}
@@ -1072,7 +1130,7 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
 
           <div className="mt-4 pt-3 border-t border-white/5 text-[11px] text-slate-500 flex items-center justify-between">
             <span>คำนวณขนาดไม้จากเงินสดในมือของคุณ</span>
-            <span className="text-emerald-400">Smart Sizing</span>
+            <span className="text-emerald-400">AI Buddy Active</span>
           </div>
         </div>
       </div>
@@ -1098,13 +1156,13 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
   );
 }
 
-// หน้าตาราง Screener พร้อมคอลัมน์ครบถ้วน
+// หน้าตาราง Screener พร้อมคอลัมน์ "จังหวะซื้อ (ซื้อเลย vs รอย่อ)"
 function ScreenerView({ stocks, onSelectStock, favorites, onToggleFav }) {
   const [onlyHalal, setOnlyHalal] = useState(false);
   const [onlyFav, setOnlyFav] = useState(false);
   const [query, setQuery] = useState("");
   const [marketFilter, setMarketFilter] = useState("ALL");
-  const [sortBy, setSortBy] = useState("RRR_DESC");
+  const [sortBy, setSortBy] = useState("BUY_NOW_FIRST");
 
   const filtered = useMemo(() => {
     const list = stocks.filter((s) => {
@@ -1120,6 +1178,13 @@ function ScreenerView({ stocks, onSelectStock, favorites, onToggleFav }) {
       const bFav = favorites.includes(b.ticker) ? 1 : 0;
       if (aFav !== bFav) return bFav - aFav;
 
+      if (sortBy === "BUY_NOW_FIRST") {
+        const order = { BUY_NOW: 1, WAIT_DIP: 2, AVOID: 3 };
+        if (order[a.timingState] !== order[b.timingState]) {
+          return order[a.timingState] - order[b.timingState];
+        }
+        return b.rrr - a.rrr;
+      }
       if (sortBy === "RRR_DESC") return b.rrr - a.rrr;
       if (sortBy === "RSI_ASC") return a.rsi - b.rsi;
       if (sortBy === "UPSIDE_DESC") return b.upsidePct - a.upsidePct;
@@ -1153,7 +1218,7 @@ function ScreenerView({ stocks, onSelectStock, favorites, onToggleFav }) {
                 <th className="px-4 py-3.5 font-semibold w-10"></th>
                 <th className="px-4 py-3.5 font-semibold">Ticker / หมวดธุรกิจ</th>
                 <th className="px-4 py-3.5 font-semibold">ราคาล่าสุด</th>
-                <th className="px-4 py-3.5 font-semibold text-sky-400">ราคาที่ควรตั้งซื้อ</th>
+                <th className="px-4 py-3.5 font-semibold text-sky-400">ซื้อตอนนี้ หรือ รอลงกว่านี้?</th>
                 <th className="px-4 py-3.5 font-semibold">ความคุ้มค่า (RRR)</th>
                 <th className="px-4 py-3.5 font-semibold text-emerald-400">เงินที่ควรลง (จำนวนหุ้น)</th>
                 <th className="px-4 py-3.5 font-semibold">สัญญาณ / RSI</th>
@@ -1191,9 +1256,9 @@ function ScreenerView({ stocks, onSelectStock, favorites, onToggleFav }) {
                       </span>
                     </td>
                     <td className="px-4 py-3.5">
-                      <div className="font-bold text-sky-300">{curr}{s.bestBuyPrice.toFixed(2)}</div>
-                      <div className="text-[10px] text-slate-400">
-                        {s.entryDiscountPct > 0 ? `ตั้งรอรับ -${s.entryDiscountPct}%` : "เคาะซื้อได้ทันที"}
+                      <ActionTimingBadge timingState={s.timingState} timingBadge={s.timingBadge} />
+                      <div className="text-[11px] text-sky-300 font-semibold mt-1">
+                        จุดตั้งซื้อ: {curr}{s.bestBuyPrice.toFixed(2)}
                       </div>
                     </td>
                     <td className="px-4 py-3.5">
@@ -1266,7 +1331,7 @@ function SignalsView({ stocks, onSelectStock, favorites, onToggleFav }) {
   const [onlyHalal, setOnlyHalal] = useState(false);
   const [onlyFav, setOnlyFav] = useState(false);
   const [query, setQuery] = useState("");
-  const [sortBy, setSortBy] = useState("RRR_DESC");
+  const [sortBy, setSortBy] = useState("BUY_NOW_FIRST");
 
   const signalCounts = useMemo(() => {
     return {
@@ -1293,6 +1358,13 @@ function SignalsView({ stocks, onSelectStock, favorites, onToggleFav }) {
       const bFav = favorites.includes(b.ticker) ? 1 : 0;
       if (aFav !== bFav) return bFav - aFav;
 
+      if (sortBy === "BUY_NOW_FIRST") {
+        const order = { BUY_NOW: 1, WAIT_DIP: 2, AVOID: 3 };
+        if (order[a.timingState] !== order[b.timingState]) {
+          return order[a.timingState] - order[b.timingState];
+        }
+        return b.rrr - a.rrr;
+      }
       if (sortBy === "RRR_DESC") return b.rrr - a.rrr;
       if (sortBy === "RSI_ASC") return a.rsi - b.rsi;
       if (sortBy === "UPSIDE_DESC") return b.upsidePct - a.upsidePct;
@@ -1391,12 +1463,13 @@ function StockDetailView({ stock, onBack, isFav, onToggleFav }) {
             <MarketBadge market={stock.market} />
             <FavoriteButton isFav={isFav} onToggle={onToggleFav} size={16} />
           </div>
-          <div className="flex items-baseline gap-3 mt-1.5">
+          <div className="flex items-baseline gap-3 mt-1.5 flex-wrap">
             <span className="text-3xl font-extrabold text-white">{curr}{stock.currentPrice.toFixed(2)}</span>
             <span className={`text-sm font-semibold flex items-center gap-0.5 ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
               {stock.change >= 0 ? <ArrowUpRight size={15} /> : <ArrowDownRight size={15} />}
               {stock.change >= 0 ? "+" : ""}{stock.change}%
             </span>
+            <ActionTimingBadge timingState={stock.timingState} timingBadge={stock.timingBadge} />
           </div>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -1408,7 +1481,20 @@ function StockDetailView({ stock, onBack, isFav, onToggleFav }) {
         </div>
       </div>
 
-      {/* 🧮 กล่องสรุปแผนการตั้งซื้อและขนาดเงินลงทุนรายตัว (Smart Order & Position Plan) */}
+      {/* 🗣️ กล่องคำแนะนำจากเพื่อนคู่หู AI (Buddy Verdict Banner) */}
+      <div className="rounded-2xl border border-teal-500/40 bg-gradient-to-r from-teal-950/40 via-[#131824] to-emerald-950/30 p-5 shadow-lg">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles size={16} className="text-teal-400" />
+          <h3 className="text-sm font-extrabold text-teal-300 uppercase tracking-wide">
+            🗣️ เพื่อนคู่หูฟันธง (ควรซื้อตอนนี้เลย หรือ รอลงกว่านี้?)
+          </h3>
+        </div>
+        <p className="text-sm sm:text-base text-white font-medium leading-relaxed">
+          {stock.buddyTalk}
+        </p>
+      </div>
+
+      {/* 🧮 กล่องสรุปแผนการตั้งซื้อและขนาดเงินลงทุนรายตัว */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-sky-500/30 bg-sky-500/[0.06] p-4">
           <p className="text-xs font-bold text-sky-400 uppercase">🎯 ราคาที่ควรตั้งซื้อ (Best Limit Buy)</p>
@@ -1515,7 +1601,7 @@ function StockDetailView({ stock, onBack, isFav, onToggleFav }) {
         </div>
       </div>
 
-      {/* กล่องความฉลาด AI จาก Gemini */}
+      {/* กล่องข้อมูลธุรกิจและความเสี่ยงฮาลาลจาก Gemini */}
       <div className="rounded-2xl border border-teal-500/25 bg-gradient-to-r from-teal-900/20 to-emerald-900/10 p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -1563,7 +1649,6 @@ export default function HalalDashboard() {
   const [lastUpdated, setLastUpdated] = useState("");
   const [error, setError] = useState(null);
 
-  // ⭐ ระบบบันทึกหุ้นโปรดลงในเครื่อง (localStorage)
   const [favorites, setFavorites] = useState(() => {
     try {
       const saved = localStorage.getItem("halal_fav_tickers");
@@ -1573,7 +1658,6 @@ export default function HalalDashboard() {
     }
   });
 
-  // 💼 ระบบบันทึกเงินสดในมือและขนาดไม้ลงทุน (localStorage)
   const [portfolio, setPortfolio] = useState(() => {
     try {
       const saved = localStorage.getItem("halal_portfolio_cash");
@@ -1640,9 +1724,9 @@ export default function HalalDashboard() {
   const liveStatus = getLiveMarketStatus();
 
   const titleMap = {
-    dashboard: "Market Overview & Smart Position Sizing",
-    screener: "Halal Compliance & RRR Screener",
-    signals: "Active Trading Signals & Limit Buy Plan",
+    dashboard: "Market Overview & AI Buddy Verdict",
+    screener: "Halal Compliance & Buy Timing Screener",
+    signals: "Active Trading Signals & Buddy Advice",
   };
   const selectedStock = selectedTicker ? analyzedStocks.find((s) => s.ticker === selectedTicker) : null;
   const handleSelectStock = (ticker) => setSelectedTicker(ticker);
@@ -1658,7 +1742,7 @@ export default function HalalDashboard() {
             </div>
             <div>
               <p className="text-white font-bold text-sm leading-tight">Halal Markets PRO</p>
-              <p className="text-slate-500 text-[11px] leading-tight">Smart Sizing & RRR Desk</p>
+              <p className="text-slate-500 text-[11px] leading-tight">AI Buddy & Sizing Desk</p>
             </div>
           </div>
           <div className="flex lg:hidden items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 bg-white/5">
@@ -1690,10 +1774,10 @@ export default function HalalDashboard() {
 
         <div className="hidden lg:block mt-auto rounded-xl border border-white/5 p-3.5 bg-[#090D16]">
           <div className="flex items-center gap-2 text-xs font-medium text-emerald-400 mb-1">
-            <Globe size={13} /> Smart Position Engine
+            <Sparkles size={13} /> AI Buddy Coach
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            ปรับงบเงินสดในมือด้านบนเพื่อคำนวณจุดตั้งซื้อ (Limit Buy) ความคุ้มค่า (RRR) และจำนวนหุ้นรายตัวอัตโนมัติ
+            เพื่อนคู่หู AI ช่วยฟันธงทุกตัวว่า "ซื้อตอนนี้ได้เลย" หรือ "รอให้ย่อลงมาก่อน" พร้อมคำนวณจำนวนหุ้นจากเงินในมือ
           </p>
         </div>
       </aside>
@@ -1704,9 +1788,9 @@ export default function HalalDashboard() {
             <div>
               <h1 className="text-white text-xl sm:text-2xl font-bold tracking-tight">{titleMap[view]}</h1>
               <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-                {view === "dashboard" && "ภาพรวมตลาด จุดตั้งซื้อที่ได้เปรียบ และคำนวณขนาดเงินลงทุนจากเงินสดในมือ"}
-                {view === "screener" && "ตารางเทียบสัดส่วนหนี้สินฮาลาล ราคาตั้งซื้อ ความคุ้มค่า (RRR) และจำนวนเงินที่ควรลง"}
-                {view === "signals" && "แผนการตั้งซื้อ (Limit Buy) จุดตัดขาดทุน เป้ากำไร และจำนวนหุ้นที่ควรซื้อรายตัว"}
+                {view === "dashboard" && "เพื่อนคู่หู AI ช่วยชี้เป้าว่าตัวไหนซื้อตอนนี้ได้เลย หรือตัวไหนต้องรอให้ย่อลงมาก่อน"}
+                {view === "screener" && "ตารางเทียบจังหวะเข้าซื้อ (ซื้อเลย vs รอย่อ) ความคุ้มค่า (RRR) และจำนวนเงินที่ควรลง"}
+                {view === "signals" && "การ์ดสัญญาณเทรดพร้อมคำแนะนำภาษาเพื่อน บอกจุดตั้งรับและขนาดไม้รายตัว"}
               </p>
             </div>
 
@@ -1728,7 +1812,6 @@ export default function HalalDashboard() {
           </div>
         )}
 
-        {/* 💼 แผงจัดการเงินสดในมือ แสดงทุกหน้าเพื่อให้ปรับตัวเลขได้ตลอดเวลา */}
         {!isLoading && !error && (
           <PortfolioCashBar portfolio={portfolio} onUpdatePortfolio={handleUpdatePortfolio} />
         )}
