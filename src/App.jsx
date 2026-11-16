@@ -26,21 +26,21 @@ const RAW_INDICES = [
   { name: "FTSE SET Shariah Index", value: "1,124.55", change: 1.12, tag: "Thai SET" },
 ];
 
-// เพิ่มค่าเริ่มต้น purificationRate (% สัดส่วนรายได้ดอกเบี้ยแฝงโดยประมาณสำหรับคำนวณชำระล้างเงินปันผลตามหลัก AAOIFI)
+// ตะกร้าหุ้นคลีนจาก BDS พร้อมค่าเริ่มต้น purificationRate (% สัดส่วนรายได้ดอกเบี้ยแฝงโดยประมาณตามหลัก AAOIFI)
 const RAW_STOCKS = [
-  // 🇺🇸 หุ้นสหรัฐอเมริกา (US Market)
+  // 🇺🇸 หุ้นสหรัฐอเมริกา & เมกะเทรนด์โลก (US Market - ตัด AAPL, MSFT, GOOGL, CSCO, CAT ออกแล้ว)
   { ticker: "HLAL", companyName: "Wahed FTSE USA Shariah ETF", sector: "ETF", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.5 },
   { ticker: "PCOR", companyName: "Procore Technologies", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.2 },
   { ticker: "SPUS", companyName: "SP Funds S&P 500 Shariah", sector: "ETF", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.4 },
-  { ticker: "AAPL", companyName: "Apple Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.8 },
-  { ticker: "MSFT", companyName: "Microsoft Corp.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.6 },
-  { ticker: "GOOGL", companyName: "Alphabet Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 2.1 },
+  { ticker: "TSM", companyName: "Taiwan Semiconductor (TSMC)", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.8 },
+  { ticker: "ASML", companyName: "ASML Holding N.V.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.6 },
+  { ticker: "ANET", companyName: "Arista Networks Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.1 },
   { ticker: "ADBE", companyName: "Adobe Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.1 },
   { ticker: "CRM", companyName: "Salesforce Inc.", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.4 },
   { ticker: "AMD", companyName: "Advanced Micro Devices", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.9 },
-  { ticker: "CSCO", companyName: "Cisco Systems", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.9 },
+  { ticker: "ISRG", companyName: "Intuitive Surgical Inc.", sector: "Healthcare", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.9 },
   { ticker: "TSLA", companyName: "Tesla Inc.", sector: "Consumer", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.5 },
-  { ticker: "CAT", companyName: "Caterpillar Inc.", sector: "Industrials", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 2.5 },
+  { ticker: "FSLR", companyName: "First Solar Inc.", sector: "Clean Energy", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.0 },
   { ticker: "LLY", companyName: "Eli Lilly and Company", sector: "Healthcare", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 0.8 },
   { ticker: "JNJ", companyName: "Johnson & Johnson", sector: "Healthcare", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.3 },
   { ticker: "TXN", companyName: "Texas Instruments", sector: "Technology", market: "US", currency: "$", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.4 },
@@ -54,6 +54,8 @@ const RAW_STOCKS = [
   { ticker: "PTTEP.BK", companyName: "PTT Exploration & Production", sector: "Energy", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 1.7 },
   { ticker: "GULF.BK", companyName: "Gulf Energy Development", sector: "Utilities", market: "TH", currency: "฿", currentPrice: 0, change: 0, totalAssets: 0, totalDebt: 0, debtRatio: 0, rsi: 50, supportLevel: 0, resistanceLevel: 0, purificationRate: 4.5 },
 ];
+
+const VALID_TICKERS = RAW_STOCKS.map((s) => s.ticker);
 
 async function fetchMarketData() {
   try {
@@ -342,7 +344,7 @@ function analyzeStock(stock, portfolio, holdings) {
   return { ...stock, debtRatio, ...halalStatus, ...signal, ...plan };
 }
 
-// คงค่า Active Buy Signals ของ App (6).jsx ไว้ครบ พร้อมบอกจำนวนหุ้นที่ถือจริงควบคู่กัน
+// คงค่า Active Buy Signals ไว้ครบ พร้อมบอกจำนวนหุ้นที่ถือจริงควบคู่กัน
 function buildQuickStats(analyzedStocks, favCount) {
   const halalCount = analyzedStocks.filter((s) => s.halal).length;
   const buyNowCount = analyzedStocks.filter((s) => s.timingState === "BUY_NOW").length;
@@ -414,11 +416,9 @@ function convertCurrencyAmount(amount, fromCurr, toCurr, fxRate = 34.5) {
   const cleanAmt = Number(amount) || 0;
   const rate = Math.max(1, Number(fxRate) || 34.5);
   if (fromCurr === toCurr) return cleanAmt;
-  // แปลงจาก บาท (฿ / THB) -> ดอลลาร์ ($ / USD)
   if ((fromCurr === "฿" || fromCurr === "THB") && (toCurr === "$" || toCurr === "USD")) {
     return cleanAmt / rate;
   }
-  // แปลงจาก ดอลลาร์ ($ / USD) -> บาท (฿ / THB)
   if ((fromCurr === "$" || fromCurr === "USD") && (toCurr === "฿" || toCurr === "THB")) {
     return cleanAmt * rate;
   }
@@ -989,7 +989,7 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortf
   );
 }
 
-// 🎯 ฟีเจอร์ที่ 1 (อัปเกรด): AI คำนวณการจัดสรรเงินลงทุน (กำหนดจำนวนตัวได้เอง + เลือกไทย/US/รวมตลาด + ใช้เงิน ฿ หรือ $ ซื้อได้ทุกตัว)
+// 🎯 ฟีเจอร์ที่ 1: AI คำนวณการจัดสรรเงินลงทุน (กำหนดจำนวนตัวได้เอง + เลือกไทย/US/รวมตลาด + ใช้เงิน ฿ หรือ $ ซื้อได้ทุกตัว)
 function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHolding }) {
   const fxRate = Math.max(1, Number(portfolio?.fxRate || 34.5));
   const [marketScope, setMarketScope] = useState("ALL"); // ALL | TH | US
@@ -1480,7 +1480,7 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
   );
 }
 
-// 🔄 ฟีเจอร์ที่ 2 (อัปเกรด): AI แนะนำการปรับพอร์ต, ซื้อถัวเฉลี่ย และสลับตัวเล่นข้ามตลาด (TH ↔ US)
+// 🔄 ฟีเจอร์ที่ 2: AI แนะนำการปรับพอร์ต, ซื้อถัวเฉลี่ย และสลับตัวเล่นข้ามตลาด (TH ↔ US)
 function PortfolioActionAdvisorBox({
   stocks,
   heldStocks,
@@ -1490,7 +1490,7 @@ function PortfolioActionAdvisorBox({
   onRemoveHolding,
 }) {
   const fxRate = Math.max(1, Number(portfolio?.fxRate || 34.5));
-  const [simTicker, setSimTicker] = useState(stocks[0]?.ticker || "AAPL");
+  const [simTicker, setSimTicker] = useState(stocks[0]?.ticker || "TSM");
   const [allowCrossMarket, setAllowCrossMarket] = useState(true);
 
   const targetList = useMemo(() => {
@@ -1662,7 +1662,7 @@ function PortfolioActionAdvisorBox({
 }
 
 // 🕌 คอมโพเนนต์เครื่องคิดเลข "ชำระล้างเงินปันผลฮาลาล (Halal Dividend Purification Calculator)"
-function DividendPurificationBox({ stocks, defaultTicker = "AAPL", purificationLogs, onAddLog, onClearLogs }) {
+function DividendPurificationBox({ stocks, defaultTicker = "TSM", purificationLogs, onAddLog, onClearLogs }) {
   const [selectedTicker, setSelectedTicker] = useState(defaultTicker);
   const selectedStock = stocks.find((s) => s.ticker === selectedTicker) || stocks[0];
   const curr = selectedStock?.currency || "$";
@@ -2293,7 +2293,7 @@ function LoadingState({ message }) {
 // ===========================================================================
 
 function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock, onNavigateSignals, onNavigatePortfolio, favorites, onToggleFav, onOpenHoldingModal }) {
-  const [heroTicker, setHeroTicker] = useState("AAPL");
+  const [heroTicker, setHeroTicker] = useState("TSM");
   const hero = stocks.find((s) => s.ticker === heroTicker) || stocks[0];
   const heroCurr = hero?.currency || "$";
 
@@ -2317,7 +2317,7 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
     return stocks.filter((s) => s.isHeld);
   }, [stocks]);
 
-  const quickChartTickers = ["AAPL", "SPUS", "TSLA", "BDMS.BK", "ADVANC.BK", "AOT.BK"].filter((t) =>
+  const quickChartTickers = ["TSM", "ASML", "ANET", "BDMS.BK", "ADVANC.BK", "DELTA.BK"].filter((t) =>
     stocks.some((s) => s.ticker === t)
   );
 
@@ -2561,7 +2561,7 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
 
           <div className="mt-4 pt-3 border-t border-white/5 text-[11px] text-slate-500 flex items-center justify-between">
             <span>คำนวณขนาดไม้จากเงินสดในมือของคุณ</span>
-            <span className="text-emerald-400">AI Buddy Active</span>
+            <span className="text-emerald-400">BDS-Free Universe</span>
           </div>
         </div>
       </div>
@@ -2779,7 +2779,7 @@ function MyPortfolioAndPurificationView({
       {/* 🕌 แถวที่ 5: เครื่องคิดเลขชำระล้างเงินปันผลฮาลาล */}
       <DividendPurificationBox
         stocks={stocks}
-        defaultTicker={heldStocks[0]?.ticker || "AAPL"}
+        defaultTicker={heldStocks[0]?.ticker || "TSM"}
         purificationLogs={purificationLogs}
         onAddLog={onAddPurificationLog}
         onClearLogs={onClearPurificationLogs}
@@ -2788,7 +2788,7 @@ function MyPortfolioAndPurificationView({
   );
 }
 
-// หน้าตาราง Screener พร้อมคอลัมน์ "จังหวะซื้อ (ซื้อเลย vs รอย่อ)" + ข้อมูลมูลค่าหนี้ครบถ้วนจาก App (6).jsx
+// หน้าตาราง Screener พร้อมคอลัมน์ "จังหวะซื้อ (ซื้อเลย vs รอย่อ)" + ข้อมูลมูลค่าหนี้ครบถ้วน
 function ScreenerView({ stocks, onSelectStock, favorites, onToggleFav, onOpenHoldingModal }) {
   const [onlyHalal, setOnlyHalal] = useState(false);
   const [onlyFav, setOnlyFav] = useState(false);
@@ -3342,9 +3342,13 @@ export default function HalalDashboard() {
   const [favorites, setFavorites] = useState(() => {
     try {
       const saved = localStorage.getItem("halal_fav_tickers");
-      return saved ? JSON.parse(saved) : ["AAPL", "BDMS.BK"];
+      if (saved) {
+        const parsed = JSON.parse(saved).filter((t) => VALID_TICKERS.includes(t));
+        return parsed.length > 0 ? parsed : ["TSM", "BDMS.BK"];
+      }
+      return ["TSM", "BDMS.BK"];
     } catch {
-      return ["AAPL", "BDMS.BK"];
+      return ["TSM", "BDMS.BK"];
     }
   });
 
@@ -3497,7 +3501,7 @@ export default function HalalDashboard() {
             </div>
             <div>
               <p className="text-white font-bold text-sm leading-tight">Halal Markets PRO</p>
-              <p className="text-slate-500 text-[11px] leading-tight">AI Buddy & Sizing Desk</p>
+              <p className="text-slate-500 text-[11px] leading-tight">BDS-Free & AI Buddy Desk</p>
             </div>
           </div>
           <div className="flex lg:hidden items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 bg-white/5">
@@ -3537,10 +3541,10 @@ export default function HalalDashboard() {
 
         <div className="hidden lg:block mt-auto rounded-xl border border-white/5 p-3.5 bg-[#090D16]">
           <div className="flex items-center gap-2 text-xs font-medium text-emerald-400 mb-1">
-            <Sparkles size={13} /> AI Buddy Coach
+            <Sparkles size={13} /> BDS-Free & AI Buddy
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            เพื่อนคู่หู AI ช่วยจัดสรรเงินลงทุนข้ามตลาด (฿/$) กำหนดจำนวนหุ้นเองได้ แนะนำจุดคัทลอส/ซื้อถัว/สลับตัวเล่นครบวงจร
+            คัดกรองเฉพาะหุ้นเมกะเทรนด์โลกที่คลีนจาก BDS และผ่านเกณฑ์ฮาลาล พร้อมระบบจัดสรรเงินข้ามตลาด (฿/$)
           </p>
         </div>
       </aside>
@@ -3551,7 +3555,7 @@ export default function HalalDashboard() {
             <div>
               <h1 className="text-white text-xl sm:text-2xl font-bold tracking-tight">{titleMap[view]}</h1>
               <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-                {view === "dashboard" && "เพื่อนคู่หู AI ช่วยชี้เป้าว่าตัวไหนซื้อตอนนี้ได้เลย หรือตัวไหนต้องรอให้ย่อลงมาก่อน"}
+                {view === "dashboard" && "เพื่อนคู่หู AI ช่วยชี้เป้าว่าตัวไหนซื้อตอนนี้ได้เลย หรือตัวไหนต้องรอให้ย่อลงมาก่อน (BDS-Free Universe)"}
                 {view === "screener" && "ตารางเทียบจังหวะเข้าซื้อ (ซื้อเลย vs รอย่อ) ความคุ้มค่า (RRR) และจำนวนเงินที่ควรลง"}
                 {view === "signals" && "การ์ดสัญญาณเทรดพร้อมคำแนะนำภาษาเพื่อน บอกจุดตั้งรับและขนาดไม้รายตัว"}
                 {view === "myportfolio" && "AI คำนวณจัดสรรเงินลงทุนอิสระ (เลือกตลาด TH/US/รวม · ใช้เงิน ฿ หรือ $ ซื้อได้ทุกตัว) และแนะนำการปรับพอร์ต/สลับตัวเล่น"}
