@@ -216,11 +216,21 @@ function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio, holding) 
     isBuyNowZone = false;
   }
 
-  // 5. คำนวณปริมาณเงินที่ควรลง (Position Sizing) จากเงินสดในมือของผู้ใช้
+  // 5. คำนวณปริมาณเงินที่ควรลง (Position Sizing) รองรับการใช้เงินข้ามสกุล (บาท/ดอลลาร์)
   const isTH = stock.market === "TH";
+  const fxRate = Math.max(1, Number(portfolio?.fxRate || 34.5));
+  const rawThCash = Number(portfolio?.thCash || 0);
+  const rawUsCash = Number(portfolio?.usCash || 0);
+
+  // หากในพอร์ตฝั่งนั้นเป็น 0 แต่มีเงินอีกสกุล ระบบแปลงค่าเงินมาช่วยคำนวณให้อัตโนมัติ
   const availableCash = isTH
-    ? Number(portfolio?.thCash || 0)
-    : Number(portfolio?.usCash || 0);
+    ? rawThCash > 0
+      ? rawThCash
+      : Math.round(rawUsCash * fxRate)
+    : rawUsCash > 0
+    ? rawUsCash
+    : Number((rawThCash / fxRate).toFixed(2));
+
   const basePct = Number(portfolio?.baseAllocPct || 15);
 
   let allocPct = 0;
@@ -380,7 +390,7 @@ function getLiveMarketStatus() {
 }
 
 // ===========================================================================
-// 🧠 AI PORTFOLIO ALLOCATION & SWITCHING ENGINE (2 ฟีเจอร์ใหม่ตามภาพ)
+// 🧠 AI PORTFOLIO ALLOCATION & CROSS-CURRENCY SWITCHING ENGINE
 // ===========================================================================
 
 // คำนวณคะแนนความน่าลงทุนของหุ้นแต่ละตัวเพื่อใช้จัดสรรเงินและหาตัวสลับ (Switching)
@@ -399,13 +409,29 @@ function scoreStockForAllocation(s) {
   return Math.max(5, Math.round(score));
 }
 
-// วิเคราะห์หุ้นที่ถืออยู่ (หรือหุ้นที่เลือกจำลอง) เทียบกับตัวท็อปในตลาดเดียวกัน เพื่อแนะนำ คัทลอส / ซื้อถัว / สลับตัวเล่น
-function buildPositionActionPlan(heldStock, allStocks) {
+// แปลงจำนวนเงินระหว่าง THB (฿) และ USD ($)
+function convertCurrencyAmount(amount, fromCurr, toCurr, fxRate = 34.5) {
+  const cleanAmt = Number(amount) || 0;
+  const rate = Math.max(1, Number(fxRate) || 34.5);
+  if (fromCurr === toCurr) return cleanAmt;
+  // แปลงจาก บาท (฿ / THB) -> ดอลลาร์ ($ / USD)
+  if ((fromCurr === "฿" || fromCurr === "THB") && (toCurr === "$" || toCurr === "USD")) {
+    return cleanAmt / rate;
+  }
+  // แปลงจาก ดอลลาร์ ($ / USD) -> บาท (฿ / THB)
+  if ((fromCurr === "$" || fromCurr === "USD") && (toCurr === "฿" || toCurr === "THB")) {
+    return cleanAmt * rate;
+  }
+  return cleanAmt;
+}
+
+// วิเคราะห์หุ้นที่ถืออยู่ (หรือหุ้นจำลอง) เทียบกับตัวท็อป (รองรับทั้งตลาดเดียวกันและข้ามตลาด ไทย ↔ อเมริกา)
+function buildPositionActionPlan(heldStock, allStocks, allowCrossMarket = true, fxRate = 34.5) {
   const curr = heldStock.currency || "$";
-  const sameMarketCandidates = allStocks
+  const candidatePool = allStocks
     .filter(
       (s) =>
-        s.market === heldStock.market &&
+        (allowCrossMarket ? true : s.market === heldStock.market) &&
         s.halal &&
         s.ticker !== heldStock.ticker &&
         s.currentPrice > 0 &&
@@ -413,7 +439,9 @@ function buildPositionActionPlan(heldStock, allStocks) {
     )
     .sort((a, b) => scoreStockForAllocation(b) - scoreStockForAllocation(a));
 
-  const bestAlt = sameMarketCandidates[0] || null;
+  const bestAlt = candidatePool[0] || null;
+  const altCurr = bestAlt?.currency || curr;
+
   const heldShares = heldStock.isHeld ? heldStock.heldShares : Math.max(1, heldStock.recommendedShares || 1);
   const avgCost = heldStock.isHeld ? heldStock.avgCost : heldStock.currentPrice;
   const currentVal = Number((heldShares * heldStock.currentPrice).toFixed(2));
@@ -421,25 +449,33 @@ function buildPositionActionPlan(heldStock, allStocks) {
   const pnlAmt = Number((currentVal - investedVal).toFixed(2));
   const pnlPct = avgCost > 0 ? Number((((heldStock.currentPrice - avgCost) / avgCost) * 100).toFixed(2)) : 0;
 
-  // คำนวณกรณีซื้อถัวเฉลี่ยเพิ่ม (Average Down) ด้วยงบ 1 ไม้มาตรฐาน
+  // คำนวณกรณีซื้อถัวเฉลี่ยเพิ่ม (Average Down)
   const addBudget = Math.max(
     heldStock.market === "TH" ? 500 : 10,
     heldStock.allocAmount > 0 ? heldStock.allocAmount : Math.round((heldStock.availableCash || 1000) * 0.15)
   );
   const rawAddShares = heldStock.currentPrice > 0 ? addBudget / heldStock.currentPrice : 0;
-  const addShares = rawAddShares >= 1 ? Math.floor(rawAddShares) : Number(rawAddShares.toFixed(2));
+  const addShares = rawAddShares >= 1 ? Math.floor(rawAddShares) : Number(rawAddShares.toFixed(4));
   const totalSharesAfterAvg = Number((heldShares + addShares).toFixed(4));
   const newAvgCost =
     totalSharesAfterAvg > 0
       ? Number(((investedVal + addShares * heldStock.currentPrice) / totalSharesAfterAvg).toFixed(2))
       : avgCost;
 
-  // คำนวณกรณีขายตัวเดิมแล้วนำเงินก้อนนั้นไปสลับซื้อตัวใหม่ (Switching)
-  const switchBudget = currentVal > 0 ? currentVal : addBudget;
+  // คำนวณกรณีขายตัวเดิมแล้วนำเงินไปสลับซื้อตัวใหม่ (แปลงค่าเงินอัตโนมัติหากสลับข้ามตลาด TH ↔ US)
+  const switchSourceMoney = currentVal > 0 ? currentVal : addBudget;
+  const switchTargetMoney = Number(
+    convertCurrencyAmount(switchSourceMoney, curr, altCurr, fxRate).toFixed(2)
+  );
   const rawSwitchShares =
-    bestAlt && bestAlt.currentPrice > 0 ? switchBudget / bestAlt.currentPrice : 0;
+    bestAlt && bestAlt.currentPrice > 0 ? switchTargetMoney / bestAlt.currentPrice : 0;
   const switchShares =
-    rawSwitchShares >= 1 ? Math.floor(rawSwitchShares) : Number(rawSwitchShares.toFixed(2));
+    rawSwitchShares >= 1 ? Math.floor(rawSwitchShares) : Number(rawSwitchShares.toFixed(4));
+
+  const crossNote =
+    curr !== altCurr
+      ? ` (แปลงค่าเงินเป็น ${altCurr}${switchTargetMoney.toLocaleString()} ที่เรท ${fxRate} ฿/$)`
+      : "";
 
   let actionType = "HOLD"; // CUT_LOSS | SWITCH | AVG_DOWN | TAKE_PROFIT | HOLD
   let actionBadge = "🛡️ ถือรันกำไรต่อ (Hold)";
@@ -453,7 +489,7 @@ function buildPositionActionPlan(heldStock, allStocks) {
     badgeTone = "bg-rose-500/20 text-rose-300 border-rose-500/40";
     headline = `สัดส่วนหนี้ของ ${heldStock.ticker} อยู่ที่ ${heldStock.debtRatio.toFixed(1)}% (เกินเกณฑ์ฮาลาล 33%)`;
     detail = bestAlt
-      ? `แนะนำขาย ${heldStock.ticker} (รับเงินสด ${curr}${switchBudget.toLocaleString()}) แล้วนำเงินไปสลับซื้อ ${bestAlt.ticker} ที่ผ่านเกณฑ์ฮาลาลและมี RRR 1:${bestAlt.rrr} (${bestAlt.timingBadge}) จะซื้อได้ประมาณ ${switchShares} หุ้น`
+      ? `แนะนำขาย ${heldStock.ticker} (ได้เงิน ${curr}${switchSourceMoney.toLocaleString()})${crossNote} แล้วนำเงินไปสลับซื้อ ${bestAlt.ticker} ที่ผ่านฮาลาลและมี RRR 1:${bestAlt.rrr} (${bestAlt.timingBadge}) ซื้อได้ประมาณ ${switchShares} หุ้น`
       : `แนะนำขายออกเพื่อถือเงินสดรอจังหวะหุ้นฮาลาลตัวอื่นย่อตัว`;
   } else if (heldStock.currentPrice <= heldStock.stopLoss || pnlPct <= -6) {
     actionType = bestAlt && bestAlt.timingState === "BUY_NOW" ? "SWITCH" : "CUT_LOSS";
@@ -464,27 +500,27 @@ function buildPositionActionPlan(heldStock, allStocks) {
     badgeTone = "bg-rose-500/20 text-rose-300 border-rose-500/40";
     headline = `ราคาหลุดจุด Stop-Loss (${curr}${heldStock.stopLoss.toFixed(2)}) หรือติดลบ ${pnlPct}%`;
     detail = bestAlt
-      ? `เพื่อไม่ให้พอร์ตจมทุน แนะนำคัทลอส ${heldStock.ticker} เพื่อดึงเงินสด ${curr}${switchBudget.toLocaleString()} ออกมาสลับเข้าซื้อ ${bestAlt.ticker} (${bestAlt.timingBadge} · RRR 1:${bestAlt.rrr} · เป้า +${bestAlt.upsidePct}%) ได้ประมาณ ${switchShares} หุ้น เพื่อปั้นกำไรคืนไวกว่า!`
-      : `แนะนำคัทลอสตามวินัยเพื่อรักษาเงินต้น ${curr}${switchBudget.toLocaleString()} ไว้รอจังหวะรอบใหม่`;
+      ? `เพื่อไม่ให้เงินจม แนะนำคัทลอส ${heldStock.ticker} ดึงเงินสด ${curr}${switchSourceMoney.toLocaleString()}${crossNote} ออกมาสลับเข้าซื้อ ${bestAlt.ticker} (${bestAlt.timingBadge} · RRR 1:${bestAlt.rrr} · เป้า +${bestAlt.upsidePct}%) ได้ประมาณ ${switchShares} หุ้น เพื่อปั้นกำไรคืนไวกว่า!`
+      : `แนะนำคัทลอสตามวินัยเพื่อรักษาเงินต้น ${curr}${switchSourceMoney.toLocaleString()} ไว้รอจังหวะรอบใหม่`;
   } else if (heldStock.currentPrice >= heldStock.targetPrice || pnlPct >= 10) {
     actionType = "TAKE_PROFIT";
     actionBadge = "💰 แบ่งขายทำกำไร / สลับตัวต้นรอบ";
     badgeTone = "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
     headline = `กำไรพุ่งชนเป้าหมายแล้ว (${pnlPct >= 0 ? "+" : ""}${pnlPct}% · กำไร +${curr}${pnlAmt.toLocaleString()})`;
     detail = bestAlt
-      ? `แนะนำแบ่งขายล็อกกำไร ${heldStock.ticker} เข้ากระเป๋า แล้วโยกเงินทุน ${curr}${switchBudget.toLocaleString()} ไปเข้าหุ้นต้นรอบอย่าง ${bestAlt.ticker} (RRR 1:${bestAlt.rrr} · ${bestAlt.timingBadge}) ซื้อได้ประมาณ ${switchShares} หุ้น`
+      ? `แนะนำแบ่งขายล็อกกำไร ${heldStock.ticker} เข้ากระเป๋า แล้วโยกเงินทุน ${curr}${switchSourceMoney.toLocaleString()}${crossNote} ไปเข้าหุ้นต้นรอบอย่าง ${bestAlt.ticker} (RRR 1:${bestAlt.rrr} · ${bestAlt.timingBadge}) ซื้อได้ประมาณ ${switchShares} หุ้น`
       : `แนะนำแบ่งขายล็อกกำไร 50%–100% เข้ากระเป๋าได้เลย และยกระดับ Trailing Stop ขึ้นมาล็อกต้นทุน`;
   } else if (
     bestAlt &&
     bestAlt.timingState === "BUY_NOW" &&
     (heldStock.timingState === "AVOID" ||
-      (heldStock.rrr < 1.2 && bestAlt.rrr >= heldStock.rrr * 1.7))
+      (heldStock.rrr < 1.2 && bestAlt.rrr >= heldStock.rrr * 1.6))
   ) {
     actionType = "SWITCH";
     actionBadge = `🔄 แนะนำสลับตัวเล่นไปเข้า ${bestAlt.ticker}`;
     badgeTone = "bg-amber-500/20 text-yellow-300 border-yellow-400/50";
-    headline = `${heldStock.ticker} เริ่มอืด/ความคุ้มค่าต่ำ (RRR 1:${heldStock.rrr}) เทียบกับตัวท็อปในตลาด`;
-    detail = `ต้นทุนเสียโอกาสสูง! แนะนำขาย ${heldStock.ticker} (ได้เงิน ${curr}${switchBudget.toLocaleString()}) เพื่อสลับไปเข้า ${bestAlt.ticker} ที่กำลังส่งสัญญาณ "${bestAlt.timingBadge}" และมีความคุ้มค่าสูงถึง RRR 1:${bestAlt.rrr} (เป้ากำไร +${bestAlt.upsidePct}%) ซื้อได้ ${switchShares} หุ้น`;
+    headline = `${heldStock.ticker} เริ่มอืด/ความคุ้มค่าต่ำ (RRR 1:${heldStock.rrr}) เทียบกับตัวท็อป`;
+    detail = `ต้นทุนเสียโอกาสสูง! แนะนำขาย ${heldStock.ticker} (ได้เงิน ${curr}${switchSourceMoney.toLocaleString()})${crossNote} เพื่อสลับไปเข้า ${bestAlt.ticker} ที่ส่งสัญญาณ "${bestAlt.timingBadge}" และมีความคุ้มค่าสูงถึง RRR 1:${bestAlt.rrr} (เป้ากำไร +${bestAlt.upsidePct}%) ซื้อได้ ${switchShares} หุ้น`;
   } else if (
     pnlPct < -1.0 &&
     heldStock.currentPrice > heldStock.stopLoss &&
@@ -495,7 +531,7 @@ function buildPositionActionPlan(heldStock, allStocks) {
     actionBadge = "➕ แนะนำซื้อถัวเฉลี่ยเพิ่ม (Average Down)";
     badgeTone = "bg-sky-500/20 text-sky-300 border-sky-400/50";
     headline = `ราคาย่อลงมาในโซนถูก (RSI ${heldStock.rsi}) แต่ยังไม่หลุดแนวรับ Stop-Loss (${curr}${heldStock.stopLoss.toFixed(2)})`;
-    detail = `จังหวะดีในการถัวลดต้นทุน! หากแบ่งงบ ${curr}${addBudget.toLocaleString()} ซื้อถัวเพิ่มอีก ${addShares} หุ้น ที่ราคา ${curr}${heldStock.currentPrice.toFixed(2)} จะทำให้ต้นทุนเฉลี่ยของคุณลดลงจาก ${curr}${avgCost.toFixed(2)} เหลือเพียง ${curr}${newAvgCost.toFixed(2)} ต่อหุ้น (รวมเป็น ${totalSharesAfterAvg} หุ้น) เวลาราคาเด้งกลับจะหลุดดอยและกำไรไวขึ้นมาก!`;
+    detail = `จังหวะดีในการถัวลดต้นทุน! หากแบ่งงบ ${curr}${addBudget.toLocaleString()} ซื้อถัวเพิ่มอีก ${addShares} หุ้น ที่ราคา ${curr}${heldStock.currentPrice.toFixed(2)} จะทำให้ต้นทุนเฉลี่ยลดลงจาก ${curr}${avgCost.toFixed(2)} เหลือเพียง ${curr}${newAvgCost.toFixed(2)} ต่อหุ้น (รวมเป็น ${totalSharesAfterAvg} หุ้น) เวลาเด้งกลับจะกำไรไวขึ้นมาก!`;
   } else {
     actionType = "HOLD";
     actionBadge = "🛡️ ถือรันต่อตามแผน (Hold & Let Profit Run)";
@@ -507,6 +543,7 @@ function buildPositionActionPlan(heldStock, allStocks) {
   return {
     stock: heldStock,
     curr,
+    altCurr,
     heldShares,
     avgCost,
     currentVal,
@@ -519,7 +556,8 @@ function buildPositionActionPlan(heldStock, allStocks) {
     headline,
     detail,
     bestAlt,
-    switchBudget,
+    switchSourceMoney,
+    switchTargetMoney,
     switchShares,
     addBudget,
     addShares,
@@ -831,8 +869,9 @@ function HoldingEditorModal({ stock, allStocks = [], onClose, onSaveHolding, onR
   );
 }
 
-// 💼 แผงควบคุม "เงินสดในมือของฉัน (My Portfolio Cash)" อัปเดตตัวเลขหน้าเว็บได้ตลอดเวลา
+// 💼 แผงควบคุม "เงินสดในมือของฉัน (My Portfolio Cash)" พร้อมเรทแลกเปลี่ยน THB/USD
 function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortfolioTab }) {
+  const fxRate = Number(portfolio?.fxRate || 34.5);
   const handleNumChange = (field, val) => {
     const clean = Math.max(0, Number(val) || 0);
     onUpdatePortfolio({ ...portfolio, [field]: clean });
@@ -848,7 +887,7 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortf
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-white font-bold text-sm">
-                พอร์ตเงินสดในมือ & คำนวณขนาดไม้ลงทุนอัตโนมัติ
+                พอร์ตเงินสดในมือ & คำนวณขนาดไม้ลงทุนอัตโนมัติ (รองรับทั้ง ฿ และ $)
               </h3>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 Auto-Saved
@@ -858,19 +897,19 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortf
                 onClick={onOpenPortfolioTab}
                 className="text-[11px] px-2.5 py-0.5 rounded-full bg-indigo-500/25 text-indigo-300 border border-indigo-400/40 hover:bg-indigo-500/35 font-semibold transition-all"
               >
-                🎯 AI จัดสรรเงิน 1-3 ตัว & แนะนำปรับพอร์ต ({heldCount} ตัวที่ถือ) →
+                🎯 AI จัดสรรเงินข้ามตลาด & ปรับพอร์ต ({heldCount} ตัวที่ถือ) →
               </button>
             </div>
             <p className="text-slate-400 text-xs mt-0.5">
-              พิมพ์แก้จำนวนเงินในมือได้ตลอดเวลา เพื่อน AI จะคำนวณจุดตั้งซื้อและจำนวนหุ้นที่ควรลงให้ทันที
+              พิมพ์แก้จำนวนเงินในมือและเรทแลกเปลี่ยนได้ตลอดเวลา ใช้เงินบาทหรือดอลลาร์คำนวณซื้อหุ้นได้ทุกตัว
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 xl:w-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 xl:w-auto">
           <div className="bg-[#090D16] border border-white/10 rounded-xl px-3.5 py-2 focus-within:border-emerald-500/50 transition-all">
             <label className="text-[10px] text-slate-400 uppercase flex items-center justify-between">
-              <span>🇹🇭 งบหุ้นไทยในมือ (฿)</span>
+              <span>🇹🇭 งบเงินบาทในมือ (฿)</span>
               <span className="text-emerald-400 font-semibold">THB</span>
             </label>
             <div className="flex items-center gap-1 mt-1">
@@ -888,7 +927,7 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortf
 
           <div className="bg-[#090D16] border border-white/10 rounded-xl px-3.5 py-2 focus-within:border-emerald-500/50 transition-all">
             <label className="text-[10px] text-slate-400 uppercase flex items-center justify-between">
-              <span>🇺🇸 งบหุ้นอเมริกาในมือ ($)</span>
+              <span>🇺🇸 งบดอลลาร์ในมือ ($)</span>
               <span className="text-sky-400 font-semibold">USD</span>
             </label>
             <div className="flex items-center gap-1 mt-1">
@@ -899,6 +938,24 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortf
                 step="100"
                 value={portfolio.usCash}
                 onChange={(e) => handleNumChange("usCash", e.target.value)}
+                className="w-full bg-transparent text-white font-bold text-sm outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="bg-[#090D16] border border-white/10 rounded-xl px-3.5 py-2 focus-within:border-emerald-500/50 transition-all">
+            <label className="text-[10px] text-slate-400 uppercase flex items-center justify-between">
+              <span>💱 เรทแลกเปลี่ยน ($1)</span>
+              <span className="text-indigo-400 font-semibold">USD/THB</span>
+            </label>
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-slate-400 font-bold text-xs">$1 = ฿</span>
+              <input
+                type="number"
+                min="1"
+                step="0.1"
+                value={fxRate}
+                onChange={(e) => handleNumChange("fxRate", e.target.value)}
                 className="w-full bg-transparent text-white font-bold text-sm outline-none"
               />
             </div>
@@ -932,81 +989,130 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortf
   );
 }
 
-// 🎯 ฟีเจอร์ใหม่ที่ 1: AI คำนวณการจัดสรรเงินลงทุนแบบโฟกัส 1-3 ตัว (Smart Focus Capital Allocator)
+// 🎯 ฟีเจอร์ที่ 1 (อัปเกรด): AI คำนวณการจัดสรรเงินลงทุน (กำหนดจำนวนตัวได้เอง + เลือกไทย/US/รวมตลาด + ใช้เงิน ฿ หรือ $ ซื้อได้ทุกตัว)
 function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHolding }) {
-  const [allocMarket, setAllocMarket] = useState("TH");
-  const [targetCount, setTargetCount] = useState(2);
-  const [selectionMode, setSelectionMode] = useState("AUTO"); // AUTO | MANUAL
-  const [manualTickers, setManualTickers] = useState([]);
+  const fxRate = Math.max(1, Number(portfolio?.fxRate || 34.5));
+  const [marketScope, setMarketScope] = useState("ALL"); // ALL | TH | US
+  const [budgetCurrency, setBudgetCurrency] = useState("THB"); // THB | USD
   const [customBudget, setCustomBudget] = useState(
     String(portfolio?.thCash || 1000)
   );
+  const [targetCount, setTargetCount] = useState("2");
+  const [selectionMode, setSelectionMode] = useState("AUTO"); // AUTO | MANUAL
+  const [manualTickers, setManualTickers] = useState([]);
 
-  useEffect(() => {
-    setCustomBudget(
-      String(allocMarket === "TH" ? portfolio?.thCash || 1000 : portfolio?.usCash || 20)
-    );
-    setManualTickers([]);
-  }, [allocMarket, portfolio?.thCash, portfolio?.usCash]);
-
-  const curr = allocMarket === "TH" ? "฿" : "$";
+  const budgetCurrSymbol = budgetCurrency === "THB" ? "฿" : "$";
   const budgetNum = Math.max(0, Number(customBudget) || 0);
 
-  const marketHalalStocks = useMemo(() => {
+  // ปุ่มดึงงบด่วนตามสกุลเงินที่เลือก
+  const applyPresetBudget = (mode) => {
+    const th = Number(portfolio?.thCash || 0);
+    const us = Number(portfolio?.usCash || 0);
+    if (mode === "TH_ONLY") {
+      setBudgetCurrency("THB");
+      setCustomBudget(String(th));
+    } else if (mode === "US_ONLY") {
+      setBudgetCurrency("USD");
+      setCustomBudget(String(us));
+    } else if (mode === "COMBINED_THB") {
+      setBudgetCurrency("THB");
+      setCustomBudget(String(Math.round(th + us * fxRate)));
+    } else if (mode === "COMBINED_USD") {
+      setBudgetCurrency("USD");
+      setCustomBudget(String(Number((us + th / fxRate).toFixed(2))));
+    }
+  };
+
+  // สลับสกุลเงินงบพร้อมแปลงตัวเลขให้อัตโนมัติ
+  const handleSwitchBudgetCurrency = (nextCurr) => {
+    if (nextCurr === budgetCurrency) return;
+    const converted = convertCurrencyAmount(
+      budgetNum,
+      budgetCurrency === "THB" ? "฿" : "$",
+      nextCurr === "THB" ? "฿" : "$",
+      fxRate
+    );
+    setBudgetCurrency(nextCurr);
+    setCustomBudget(String(nextCurr === "THB" ? Math.round(converted) : Number(converted.toFixed(2))));
+  };
+
+  // กรองหุ้นฮาลาลตามขอบเขตตลาดที่เลือก (ไทยอย่างเดียว / อเมริกาอย่างเดียว / รวมทั้งสองตลาด)
+  const eligibleHalalStocks = useMemo(() => {
     return stocks
-      .filter((s) => s.market === allocMarket && s.halal && s.currentPrice > 0)
+      .filter((s) => {
+        if (!s.halal || s.currentPrice <= 0) return false;
+        if (marketScope === "TH" && s.market !== "TH") return false;
+        if (marketScope === "US" && s.market !== "US") return false;
+        return true;
+      })
       .sort((a, b) => scoreStockForAllocation(b) - scoreStockForAllocation(a));
-  }, [stocks, allocMarket]);
+  }, [stocks, marketScope]);
+
+  const maxAvailableCount = eligibleHalalStocks.length || 1;
+  const cleanTargetCount = Math.min(
+    maxAvailableCount,
+    Math.max(1, parseInt(targetCount, 10) || 1)
+  );
 
   const chosenStocks = useMemo(() => {
     if (selectionMode === "MANUAL" && manualTickers.length > 0) {
-      return marketHalalStocks.filter((s) => manualTickers.includes(s.ticker));
+      return eligibleHalalStocks.filter((s) => manualTickers.includes(s.ticker));
     }
-    return marketHalalStocks.slice(0, targetCount);
-  }, [marketHalalStocks, selectionMode, manualTickers, targetCount]);
+    return eligibleHalalStocks.slice(0, cleanTargetCount);
+  }, [eligibleHalalStocks, selectionMode, manualTickers, cleanTargetCount]);
 
+  // คำนวณสัดส่วนเงินและแปลงค่าเงินข้ามตลาด (฿ ↔ $) เพื่อหาจำนวนหุ้นที่ซื้อได้จริงของแต่ละตัว
   const allocationPlan = useMemo(() => {
     if (!chosenStocks.length || budgetNum <= 0) return [];
     const scores = chosenStocks.map((s) => scoreStockForAllocation(s));
     const totalScore = scores.reduce((a, b) => a + b, 0) || 1;
 
-    // คำนวณสัดส่วน % ให้รวมกันได้ 100% พอดี
     let runningPct = 0;
     return chosenStocks.map((s, idx) => {
       const weightPct =
         idx === chosenStocks.length - 1
           ? Math.max(1, 100 - runningPct)
-          : Math.max(10, Math.round((scores[idx] / totalScore) * 100));
+          : Math.max(1, Math.round((scores[idx] / totalScore) * 100));
       runningPct += weightPct;
 
-      const money = Number(((budgetNum * weightPct) / 100).toFixed(2));
+      // เงินที่จัดสรรในสกุลเงินงบที่ผู้ใช้ตั้งไว้ (฿ หรือ $)
+      const moneyInBudgetCurr = Number(((budgetNum * weightPct) / 100).toFixed(2));
+
+      // แปลงเป็นสกุลเงินประจำตัวของหุ้นตัวนั้น (เช่น งบ ฿ แต่ซื้อหุ้น US $ หรือ งบ $ แต่ซื้อหุ้นไทย ฿)
+      const stockCurr = s.currency || "$";
+      const moneyInStockCurr = Number(
+        convertCurrencyAmount(moneyInBudgetCurr, budgetCurrSymbol, stockCurr, fxRate).toFixed(2)
+      );
+
       const entryPrice = s.timingState === "BUY_NOW" ? s.currentPrice : s.bestBuyPrice;
-      const rawShares = entryPrice > 0 ? money / entryPrice : 0;
-      const shares = rawShares >= 1 ? Math.floor(rawShares) : Number(rawShares.toFixed(2));
-      const estProfit = Number((money * (s.upsidePct / 100)).toFixed(2));
-      const estRisk = Number((money * (s.downsidePct / 100)).toFixed(2));
+      const rawShares = entryPrice > 0 ? moneyInStockCurr / entryPrice : 0;
+      const shares = rawShares >= 1 ? Math.floor(rawShares) : Number(rawShares.toFixed(4));
+
+      const estProfitInBudgetCurr = Number((moneyInBudgetCurr * (s.upsidePct / 100)).toFixed(2));
+      const estRiskInBudgetCurr = Number((moneyInBudgetCurr * (s.downsidePct / 100)).toFixed(2));
 
       return {
         stock: s,
+        stockCurr,
         weightPct,
-        money,
+        moneyInBudgetCurr,
+        moneyInStockCurr,
+        isCrossCurrency: budgetCurrSymbol !== stockCurr,
         entryPrice,
         shares,
-        estProfit,
-        estRisk,
+        estProfitInBudgetCurr,
+        estRiskInBudgetCurr,
       };
     });
-  }, [chosenStocks, budgetNum]);
+  }, [chosenStocks, budgetNum, budgetCurrSymbol, fxRate]);
 
-  const totalEstProfit = allocationPlan.reduce((sum, item) => sum + item.estProfit, 0);
-  const totalEstRisk = allocationPlan.reduce((sum, item) => sum + item.estRisk, 0);
+  const totalEstProfit = allocationPlan.reduce((sum, item) => sum + item.estProfitInBudgetCurr, 0);
+  const totalEstRisk = allocationPlan.reduce((sum, item) => sum + item.estRiskInBudgetCurr, 0);
 
   const toggleManualTicker = (ticker) => {
-    setManualTickers((prev) => {
-      if (prev.includes(ticker)) return prev.filter((t) => t !== ticker);
-      if (prev.length >= 4) return prev;
-      return [...prev, ticker];
-    });
+    setManualTickers((prev) =>
+      prev.includes(ticker) ? prev.filter((t) => t !== ticker) : [...prev, ticker]
+    );
   };
 
   return (
@@ -1014,34 +1120,36 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
         <div>
           <h3 className="text-white font-bold text-base flex items-center gap-2">
-            🎯 AI คำนวณการจัดสรรเงินลงทุนแบบโฟกัส (Smart Focus Capital Allocator)
+            🎯 AI คำนวณการจัดสรรเงินลงทุนอิสระ (Custom Multi-Market & Cross-Currency Allocator)
           </h3>
           <p className="text-slate-400 text-xs mt-0.5">
-            ระบุงบและจำนวนหุ้นเป้าหมาย (1–3 ตัว) เพื่อให้เพื่อน AI แบ่งสัดส่วนเงินเข้าซื้อตามความคุ้มค่า (RRR) และจังหวะราคา
+            เลือกได้ทั้งหุ้นไทยอย่างเดียว อเมริกาอย่างเดียว หรือรวมกัน · กำหนดจำนวนหุ้นได้เอง · ใช้เงินบาท (฿) หรือดอลลาร์ ($) คำนวณซื้อหุ้นตัวไหนก็ได้
           </p>
         </div>
         <span className="text-[11px] px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold">
-          Focus 1–3 Tickers Strategy
+          เรทคำนวณ $1 = ฿{fxRate}
         </span>
       </div>
 
-      {/* แถวตั้งค่า: เลือกตลาด + กรอกงบ + จำนวนหุ้นเป้าหมาย + โหมดคัดเลือก */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+      {/* แถวตั้งค่า 4 กล่อง: 1. ขอบเขตตลาด 2. สกุลเงินและงบลงทุน 3. จำนวนหุ้นที่ต้องการ (กำหนดเองได้) 4. โหมดคัดเลือก */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5">
+        {/* 1. เลือกขอบเขตตลาด */}
         <div className="bg-[#090D16] border border-white/10 rounded-xl p-3">
           <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1.5">
-            1. เลือกตลาดที่ต้องการลงทุน
+            1. ขอบเขตตลาดหุ้นที่ต้องการ
           </label>
-          <div className="flex gap-1.5">
+          <div className="grid grid-cols-3 gap-1">
             {[
-              { id: "TH", label: "🇹🇭 หุ้นไทย (฿)" },
-              { id: "US", label: "🇺🇸 หุ้นอเมริกา ($)" },
+              { id: "ALL", label: "🌐 รวม TH+US" },
+              { id: "TH", label: "🇹🇭 ไทยล้วน" },
+              { id: "US", label: "🇺🇸 US ล้วน" },
             ].map((m) => (
               <button
                 key={m.id}
                 type="button"
-                onClick={() => setAllocMarket(m.id)}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                  allocMarket === m.id
+                onClick={() => setMarketScope(m.id)}
+                className={`py-1.5 px-1 rounded-lg text-[11px] font-bold border transition-all ${
+                  marketScope === m.id
                     ? "bg-emerald-500/25 border-emerald-400/50 text-emerald-300"
                     : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
                 }`}
@@ -1050,14 +1158,37 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
               </button>
             ))}
           </div>
+          <p className="text-[10px] text-slate-500 mt-1.5">
+            หุ้นผ่านฮาลาลในกลุ่มนี้: <strong className="text-slate-300">{eligibleHalalStocks.length} บริษัท</strong>
+          </p>
         </div>
 
+        {/* 2. งบลงทุน & สกุลเงิน (ใช้ ฿ หรือ $ ซื้อได้ทุกตัว) */}
         <div className="bg-[#090D16] border border-white/10 rounded-xl p-3">
-          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">
-            2. งบลงทุนที่ต้องการจัดสรร ({curr})
-          </label>
-          <div className="flex items-center gap-1">
-            <span className="text-slate-400 font-bold text-sm">{curr}</span>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-[10px] text-slate-400 uppercase font-bold">
+              2. งบลงทุน & สกุลเงินตั้งต้น
+            </label>
+            <div className="flex gap-1">
+              {["THB", "USD"].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => handleSwitchBudgetCurrency(c)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-extrabold border transition-all ${
+                    budgetCurrency === c
+                      ? "bg-sky-500/25 border-sky-400 text-sky-300"
+                      : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {c === "THB" ? "฿ THB" : "$ USD"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 mt-1">
+            <span className="text-sky-400 font-extrabold text-sm">{budgetCurrSymbol}</span>
             <input
               type="number"
               min="0"
@@ -1067,79 +1198,142 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
               className="w-full bg-transparent text-white font-extrabold text-base outline-none"
             />
           </div>
-          <p className="text-[10px] text-slate-500 mt-1">
-            ซิงค์จากเงินสดในมือ หรือพิมพ์ปรับยอดเฉพาะกิจได้
-          </p>
+
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            <button
+              type="button"
+              onClick={() => applyPresetBudget("TH_ONLY")}
+              className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300"
+            >
+              งบไทย (฿{portfolio.thCash})
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPresetBudget("US_ONLY")}
+              className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300"
+            >
+              งบ US (${portfolio.usCash})
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPresetBudget(budgetCurrency === "THB" ? "COMBINED_THB" : "COMBINED_USD")}
+              className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 font-semibold"
+            >
+              รวม 2 พอร์ต
+            </button>
+          </div>
         </div>
 
+        {/* 3. กำหนดจำนวนหุ้นเป้าหมายได้เองอิสระ */}
         <div className="bg-[#090D16] border border-white/10 rounded-xl p-3">
-          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1.5">
-            3. จำนวนหุ้นเป้าหมายที่อยากโฟกัส
-          </label>
-          <div className="flex gap-1.5">
-            {[
-              { count: 1, label: "1 ตัว (เน้นๆ)" },
-              { count: 2, label: "2 ตัว (คู่หู)" },
-              { count: 3, label: "3 ตัว (กระจาย)" },
-            ].map((item) => (
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-[10px] text-slate-400 uppercase font-bold">
+              3. จำนวนหุ้นเป้าหมาย (กำหนดเอง)
+            </label>
+            <span className="text-[10px] text-indigo-300 font-bold">
+              สูงสุด {maxAvailableCount} ตัว
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 mt-1">
+            <input
+              type="number"
+              min="1"
+              max={maxAvailableCount}
+              value={targetCount}
+              onChange={(e) => {
+                setSelectionMode("AUTO");
+                setTargetCount(e.target.value);
+              }}
+              className="w-20 bg-[#131824] border border-indigo-500/40 rounded-lg px-2.5 py-1 text-center text-white font-extrabold text-sm outline-none focus:border-indigo-400"
+            />
+            <span className="text-xs text-slate-300 font-semibold">บริษัท</span>
+          </div>
+
+          <div className="flex items-center gap-1 mt-1.5">
+            {[1, 2, 3, 5, maxAvailableCount].map((cnt, i) => (
               <button
-                key={item.count}
+                key={`${cnt}-${i}`}
                 type="button"
                 onClick={() => {
                   setSelectionMode("AUTO");
-                  setTargetCount(item.count);
+                  setTargetCount(String(cnt));
                 }}
-                className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-                  selectionMode === "AUTO" && targetCount === item.count
-                    ? "bg-indigo-500/30 border-indigo-400/60 text-indigo-200"
+                className={`flex-1 py-0.5 rounded text-[10px] font-bold border transition-all ${
+                  selectionMode === "AUTO" && cleanTargetCount === cnt
+                    ? "bg-indigo-500/30 border-indigo-400 text-indigo-200"
                     : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
                 }`}
               >
-                {item.label}
+                {cnt === maxAvailableCount && i === 4 ? `ทั้งหมด (${cnt})` : `${cnt} ตัว`}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="bg-[#090D16] border border-white/10 rounded-xl p-3">
-          <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1.5">
-            4. โหมดการเลือกหุ้นเข้าพอร์ต
-          </label>
-          <div className="flex gap-1.5">
-            <button
-              type="button"
-              onClick={() => setSelectionMode("AUTO")}
-              className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-                selectionMode === "AUTO"
-                  ? "bg-teal-500/25 border-teal-400/50 text-teal-300"
-                  : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
-              }`}
-            >
-              🤖 AI คัดตัวท็อปให้
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectionMode("MANUAL")}
-              className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-                selectionMode === "MANUAL"
-                  ? "bg-amber-500/25 border-amber-400/50 text-amber-300"
-                  : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
-              }`}
-            >
-              ✋ เลือกหุ้นเอง
-            </button>
+        {/* 4. โหมดการคัดเลือกหุ้น */}
+        <div className="bg-[#090D16] border border-white/10 rounded-xl p-3 flex flex-col justify-between">
+          <div>
+            <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1.5">
+              4. โหมดเลือกหุ้นเข้าพอร์ต
+            </label>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectionMode("AUTO")}
+                className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
+                  selectionMode === "AUTO"
+                    ? "bg-teal-500/25 border-teal-400/50 text-teal-300"
+                    : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                }`}
+              >
+                🤖 AI คัดตัวท็อป ({cleanTargetCount} ตัว)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectionMode("MANUAL")}
+                className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
+                  selectionMode === "MANUAL"
+                    ? "bg-amber-500/25 border-amber-400/50 text-amber-300"
+                    : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                }`}
+              >
+                ✋ เลือกเอง ({manualTickers.length || "ไม่จำกัด"})
+              </button>
+            </div>
           </div>
+          <p className="text-[10px] text-slate-500 mt-1.5">
+            AI ถ่วงน้ำหนักงบตามความคุ้มค่า (RRR) และ RSI
+          </p>
         </div>
       </div>
 
-      {/* แถบเลือกหุ้นเองเมื่ออยู่ในโหมด MANUAL */}
+      {/* แถบเลือกหุ้นเองแบบไม่จำกัดจำนวน (เมื่ออยู่ในโหมด MANUAL) */}
       {selectionMode === "MANUAL" && (
-        <div className="rounded-xl bg-[#090D16] border border-amber-500/30 p-3">
-          <p className="text-xs text-amber-300 font-bold mb-2">
-            ✋ คลิกเลือกหุ้นฮาลาลที่คุณอยากให้ AI คำนวณแบ่งสัดส่วนเงิน (เลือกได้สูงสุด 4 ตัว):
-          </p>
+        <div className="rounded-xl bg-[#090D16] border border-amber-500/30 p-3 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-amber-300 font-bold">
+              ✋ คลิกเลือกหุ้นที่คุณต้องการให้ AI คำนวณแบ่งสัดส่วนเงิน (เลือกกี่ตัวก็ได้ ผสมไทย+US ได้เลย):
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setManualTickers(eligibleHalalStocks.map((s) => s.ticker))}
+                className="text-[11px] text-emerald-400 hover:underline font-semibold"
+              >
+                เลือกทั้งหมด ({eligibleHalalStocks.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setManualTickers([])}
+                className="text-[11px] text-rose-400 hover:underline font-semibold"
+              >
+                ล้างที่เลือก
+              </button>
+            </div>
+          </div>
           <div className="flex flex-wrap gap-1.5">
-            {marketHalalStocks.map((s) => {
+            {eligibleHalalStocks.map((s) => {
               const active = manualTickers.includes(s.ticker);
               return (
                 <button
@@ -1148,11 +1342,11 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
                   onClick={() => toggleManualTicker(s.ticker)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
                     active
-                      ? "bg-amber-500/25 border-amber-400 text-amber-200"
+                      ? "bg-amber-500/25 border-amber-400 text-amber-200 shadow-sm"
                       : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
                   }`}
                 >
-                  {s.ticker.replace(".BK", "")} (RRR 1:{s.rrr})
+                  {s.market === "TH" ? "🇹🇭" : "🇺🇸"} {s.ticker.replace(".BK", "")} (RRR 1:{s.rrr})
                 </button>
               );
             })}
@@ -1163,7 +1357,7 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
       {/* ตารางการ์ดผลลัพธ์การจัดสรรเงินลงทุน */}
       {allocationPlan.length > 0 && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
             {allocationPlan.map((item, index) => {
               const s = item.stock;
               return (
@@ -1175,42 +1369,67 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                          อันดับ #{index + 1} · แบ่งงบ {item.weightPct}%
+                          อันดับ #{index + 1} · สัดส่วน {item.weightPct}%
                         </span>
-                        <div className="flex items-center gap-1.5 mt-1.5">
+                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                           <h4
                             onClick={() => onSelectStock(s.ticker)}
                             className="text-base font-extrabold text-white hover:text-emerald-400 cursor-pointer"
                           >
                             {s.ticker}
                           </h4>
+                          <MarketBadge market={s.market} />
                           <WorthinessBadge worthLabel={s.worthLabel} worthTone={s.worthTone} />
                         </div>
-                        <p className="text-[11px] text-slate-400 truncate">{s.companyName}</p>
+                        <p className="text-[11px] text-slate-400 truncate mt-0.5">{s.companyName}</p>
                       </div>
                       <StatusBadge status={s.status} />
                     </div>
 
                     <div className="mt-3 pt-2.5 border-t border-white/5 space-y-1.5 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">จำนวนเงินที่ควรลง:</span>
-                        <span className="font-extrabold text-emerald-300 text-sm">
-                          {curr}{item.money.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({item.weightPct}%)
-                        </span>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-slate-400">งบที่จัดสรรให้:</span>
+                        <div className="text-right">
+                          <span className="font-extrabold text-emerald-300 text-sm">
+                            {budgetCurrSymbol}
+                            {item.moneyInBudgetCurr.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
+                          {item.isCrossCurrency && (
+                            <span className="block text-[11px] text-sky-300 font-semibold">
+                              ≈ {item.stockCurr}
+                              {item.moneyInStockCurr.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}{" "}
+                              (แปลงค่าเงินอัตโนมัติ)
+                            </span>
+                          )}
+                        </div>
                       </div>
+
                       <div className="flex justify-between">
-                        <span className="text-slate-400">จำนวนหุ้นที่ซื้อได้:</span>
-                        <span className="font-bold text-white">{item.shares} หุ้น</span>
+                        <span className="text-slate-400">จำนวนหุ้นที่ซื้อได้จริง:</span>
+                        <span className="font-extrabold text-white">{item.shares} หุ้น</span>
                       </div>
+
                       <div className="flex justify-between">
-                        <span className="text-slate-400">ราคาแนะนำตั้งซื้อ:</span>
+                        <span className="text-slate-400">ราคาตั้งซื้อ ({item.stockCurr}):</span>
                         <span className="font-bold text-sky-300">
-                          {curr}{item.entryPrice.toFixed(2)} ({s.timingState === "BUY_NOW" ? "ซื้อได้เลย" : "ตั้ง Limit รอย่อ"})
+                          {item.stockCurr}
+                          {item.entryPrice.toFixed(2)} ({s.timingState === "BUY_NOW" ? "เคาะซื้อได้เลย" : "ตั้ง Limit รอย่อ"})
                         </span>
                       </div>
-                      <div className="flex justify-between text-[11px] pt-1">
-                        <span className="text-emerald-400">เป้ากำไร: +{curr}{item.estProfit.toFixed(2)}</span>
-                        <span className="text-rose-400">ความเสี่ยง: -{curr}{item.estRisk.toFixed(2)}</span>
+
+                      <div className="flex justify-between text-[11px] pt-1 border-t border-white/5">
+                        <span className="text-emerald-400">
+                          เป้ากำไร: +{budgetCurrSymbol}{item.estProfitInBudgetCurr.toFixed(2)}
+                        </span>
+                        <span className="text-rose-400">
+                          ความเสี่ยง: -{budgetCurrSymbol}{item.estRiskInBudgetCurr.toFixed(2)}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1220,7 +1439,7 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
                     onClick={() => onSaveHolding(s.ticker, item.shares, item.entryPrice)}
                     className="w-full py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-xs transition-all"
                   >
-                    💼 บันทึกซื้อ {s.ticker.replace(".BK", "")} ({item.shares} หุ้น) เข้าพอร์ตจริง
+                    💼 บันทึกซื้อ {s.ticker.replace(".BK", "")} ({item.shares} หุ้น @ {item.stockCurr}{item.entryPrice})
                   </button>
                 </div>
               );
@@ -1231,15 +1450,28 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
           <div className="rounded-xl bg-indigo-950/30 border border-indigo-500/30 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <p className="text-slate-200 leading-relaxed">
               <strong className="text-indigo-300 mr-1.5">🤖 เพื่อน AI สรุปแผนจัดสรรเงิน:</strong>
-              จากงบทั้งหมด <strong className="text-white">{curr}{budgetNum.toLocaleString()}</strong> โฟกัส{" "}
-              <strong className="text-white">{allocationPlan.length} บริษัท</strong> ระบบให้น้ำหนักสูงสุดไปที่{" "}
-              <strong className="text-emerald-300">
-                {allocationPlan[0].stock.ticker} ({allocationPlan[0].weightPct}% = {curr}{allocationPlan[0].money.toLocaleString()})
+              จากงบทั้งหมด{" "}
+              <strong className="text-white">
+                {budgetCurrSymbol}
+                {budgetNum.toLocaleString()}
               </strong>{" "}
-              เนื่องจากมีอัตราส่วนความคุ้มค่า RRR 1:{allocationPlan[0].stock.rrr} และ RSI อยู่ที่ {allocationPlan[0].stock.rsi}{" "}
-              โดยพอร์ตชุดนี้มีกำไรคาดหวังรวม{" "}
-              <strong className="text-emerald-400">+{curr}{totalEstProfit.toFixed(2)}</strong> เทียบความเสี่ยงรวม{" "}
-              <strong className="text-rose-400">-{curr}{totalEstRisk.toFixed(2)}</strong>
+              กระจายลงหุ้นฮาลาล <strong className="text-white">{allocationPlan.length} บริษัท</strong>{" "}
+              ({marketScope === "ALL" ? "ผสมทั้งตลาดหุ้นไทยและอเมริกา" : marketScope === "TH" ? "ตลาดหุ้นไทยล้วน" : "ตลาดหุ้นอเมริกาล้วน"})
+              โดยให้น้ำหนักสูงสุดที่{" "}
+              <strong className="text-emerald-300">
+                {allocationPlan[0].stock.ticker} ({allocationPlan[0].weightPct}% = {budgetCurrSymbol}
+                {allocationPlan[0].moneyInBudgetCurr.toLocaleString()})
+              </strong>{" "}
+              เพราะมี RRR 1:{allocationPlan[0].stock.rrr} · พอร์ตชุดนี้มีกำไรคาดหวังรวม{" "}
+              <strong className="text-emerald-400">
+                +{budgetCurrSymbol}
+                {totalEstProfit.toFixed(2)}
+              </strong>{" "}
+              เทียบความเสี่ยงรวม{" "}
+              <strong className="text-rose-400">
+                -{budgetCurrSymbol}
+                {totalEstRisk.toFixed(2)}
+              </strong>
             </p>
           </div>
         </>
@@ -1248,17 +1480,19 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
   );
 }
 
-// 🔄 ฟีเจอร์ใหม่ที่ 2: AI แนะนำการปรับพอร์ต, ซื้อถัวเฉลี่ย และสลับตัวเล่น (Portfolio Action & Switching Advisor)
+// 🔄 ฟีเจอร์ที่ 2 (อัปเกรด): AI แนะนำการปรับพอร์ต, ซื้อถัวเฉลี่ย และสลับตัวเล่นข้ามตลาด (TH ↔ US)
 function PortfolioActionAdvisorBox({
   stocks,
   heldStocks,
+  portfolio,
   onSelectStock,
   onSaveHolding,
   onRemoveHolding,
 }) {
+  const fxRate = Math.max(1, Number(portfolio?.fxRate || 34.5));
   const [simTicker, setSimTicker] = useState(stocks[0]?.ticker || "AAPL");
+  const [allowCrossMarket, setAllowCrossMarket] = useState(true);
 
-  // หากผู้ใช้มีหุ้นที่ถือจริง ให้วิเคราะห์ทุกตัวที่ถืออยู่ แต่ถ้ายังไม่มี ให้แสดงตัวจำลอง (Simulator) เพื่อให้ทดลองใช้งานได้ทันที
   const targetList = useMemo(() => {
     if (heldStocks.length > 0) return heldStocks;
     const simStock = stocks.find((s) => s.ticker === simTicker) || stocks[0];
@@ -1266,8 +1500,10 @@ function PortfolioActionAdvisorBox({
   }, [heldStocks, stocks, simTicker]);
 
   const actionPlans = useMemo(() => {
-    return targetList.map((s) => buildPositionActionPlan(s, stocks));
-  }, [targetList, stocks]);
+    return targetList.map((s) =>
+      buildPositionActionPlan(s, stocks, allowCrossMarket, fxRate)
+    );
+  }, [targetList, stocks, allowCrossMarket, fxRate]);
 
   const handleExecuteSwitch = (plan) => {
     if (!plan.bestAlt) return;
@@ -1286,31 +1522,46 @@ function PortfolioActionAdvisorBox({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
         <div>
           <h3 className="text-white font-bold text-base flex items-center gap-2">
-            🔄 AI แนะนำการปรับพอร์ต & สลับตัวเล่น (Portfolio Action & Switching Advisor)
+            🔄 AI แนะนำการปรับพอร์ต & สลับตัวเล่นข้ามตลาด (Portfolio Action & Cross-Market Switching)
           </h3>
           <p className="text-slate-400 text-xs mt-0.5">
-            วิเคราะห์หุ้นในพอร์ตแบบเจาะจงว่าตัวไหนควร <strong>คัทลอส</strong>, <strong>ซื้อถัวเฉลี่ยลดต้นทุน</strong> หรือ{" "}
-            <strong>ขายตัวอืดเพื่อสลับไปเข้าตัวท็อป (Switching)</strong>
+            วิเคราะห์หุ้นในพอร์ตว่าควร <strong>คัทลอส</strong>, <strong>ซื้อถัวเฉลี่ยลดต้นทุน</strong> หรือ{" "}
+            <strong>ขายเพื่อนำเงินไปสลับซื้อหุ้นตัวท็อป (รองรับทั้งสลับข้ามตลาด ไทย ↔ US และตลาดเดียวกัน)</strong>
           </p>
         </div>
 
-        {/* หากยังไม่ได้บันทึกหุ้นเข้าพอร์ต สามารถเลือกหุ้นจำลองเพื่อดูแผนสลับตัวเล่นได้ */}
-        {heldStocks.length === 0 && (
-          <div className="flex items-center gap-2 bg-[#090D16] border border-amber-500/40 rounded-xl px-3 py-1.5">
-            <span className="text-[11px] text-amber-300 font-semibold">🔍 จำลองเช็คหุ้นหากถือ:</span>
-            <select
-              value={simTicker}
-              onChange={(e) => setSimTicker(e.target.value)}
-              className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer"
-            >
-              {stocks.map((s) => (
-                <option key={s.ticker} value={s.ticker} className="bg-[#131824]">
-                  {s.ticker} ({s.companyName})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* ปุ่มเลือกขอบเขตการสลับตัวเล่น (ข้ามตลาด ไทย ↔ US หรือ ตลาดเดียวกัน) */}
+          <button
+            type="button"
+            onClick={() => setAllowCrossMarket((v) => !v)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+              allowCrossMarket
+                ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300"
+                : "bg-white/5 border-white/10 text-slate-300"
+            }`}
+          >
+            {allowCrossMarket ? "🌐 สลับข้ามตลาดได้ (TH ↔ US)" : "🔒 สลับเฉพาะตลาดเดียวกัน"}
+          </button>
+
+          {/* หากยังไม่ได้บันทึกหุ้นเข้าพอร์ต สามารถเลือกหุ้นจำลองเพื่อดูแผนสลับตัวเล่นได้ */}
+          {heldStocks.length === 0 && (
+            <div className="flex items-center gap-2 bg-[#090D16] border border-amber-500/40 rounded-xl px-3 py-1.5">
+              <span className="text-[11px] text-amber-300 font-semibold">🔍 จำลองเช็คหุ้นหากถือ:</span>
+              <select
+                value={simTicker}
+                onChange={(e) => setSimTicker(e.target.value)}
+                className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer"
+              >
+                {stocks.map((s) => (
+                  <option key={s.ticker} value={s.ticker} className="bg-[#131824]">
+                    {s.ticker} ({s.companyName})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1367,10 +1618,10 @@ function PortfolioActionAdvisorBox({
                       className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-2.5 cursor-pointer hover:border-emerald-400 transition-all"
                     >
                       <p className="text-[10px] text-emerald-300 font-bold uppercase">
-                        🌟 ตัวท็อปน่าสลับเข้า ({alt.ticker})
+                        🌟 ตัวท็อปน่าสลับเข้า ({alt.ticker} · {alt.market})
                       </p>
                       <p className="font-extrabold text-emerald-300 mt-0.5">
-                        {plan.curr}{alt.currentPrice.toFixed(2)} · RRR 1:{alt.rrr}
+                        {plan.altCurr}{alt.currentPrice.toFixed(2)} · RRR 1:{alt.rrr}
                       </p>
                       <p className="text-[11px] text-emerald-200/80">
                         RSI {alt.rsi} · เป้า +{alt.upsidePct}% ({alt.timingState === "BUY_NOW" ? "ซื้อได้เลย" : "รอย่อ"})
@@ -2336,7 +2587,7 @@ function DashboardView({ stocks, indices, chartSeries, quickStats, onSelectStock
   );
 }
 
-// 💼🕌 หน้าใหม่ (แท็บที่ 4): พอร์ตหุ้นที่ถืออยู่จริง + AI จัดสรรเงิน 1-3 ตัว + AI แนะนำปรับพอร์ต/สลับตัว + ชำระล้างปันผลฮาลาล
+// 💼🕌 หน้าใหม่ (แท็บที่ 4): พอร์ตหุ้นที่ถืออยู่จริง + AI จัดสรรเงินอิสระข้ามตลาด + AI แนะนำปรับพอร์ต/สลับตัว + ชำระล้างปันผลฮาลาล
 function MyPortfolioAndPurificationView({
   stocks,
   portfolio,
@@ -2507,7 +2758,7 @@ function MyPortfolioAndPurificationView({
         )}
       </div>
 
-      {/* 🎯 แถวที่ 3 (ฟีเจอร์ใหม่ 1): AI คำนวณการจัดสรรเงินลงทุนแบบโฟกัส 1-3 ตัว */}
+      {/* 🎯 แถวที่ 3: AI คำนวณการจัดสรรเงินลงทุนอิสระ (กำหนดจำนวนตัวได้เอง + เลือกตลาด TH/US/รวม + ใช้ ฿ หรือ $ ซื้อได้ทุกตัว) */}
       <SmartFocusAllocatorBox
         stocks={stocks}
         portfolio={portfolio}
@@ -2515,10 +2766,11 @@ function MyPortfolioAndPurificationView({
         onSaveHolding={onSaveHolding}
       />
 
-      {/* 🔄 แถวที่ 4 (ฟีเจอร์ใหม่ 2): AI แนะนำการปรับพอร์ต, คัทลอส, ซื้อถัวเฉลี่ย และสลับตัวเล่น */}
+      {/* 🔄 แถวที่ 4: AI แนะนำการปรับพอร์ต, คัทลอส, ซื้อถัวเฉลี่ย และสลับตัวเล่นข้ามตลาด */}
       <PortfolioActionAdvisorBox
         stocks={stocks}
         heldStocks={heldStocks}
+        portfolio={portfolio}
         onSelectStock={onSelectStock}
         onSaveHolding={onSaveHolding}
         onRemoveHolding={onRemoveHolding}
@@ -3099,9 +3351,11 @@ export default function HalalDashboard() {
   const [portfolio, setPortfolio] = useState(() => {
     try {
       const saved = localStorage.getItem("halal_portfolio_cash");
-      return saved ? JSON.parse(saved) : { thCash: 50000, usCash: 1500, baseAllocPct: 15 };
+      return saved
+        ? { thCash: 50000, usCash: 1500, baseAllocPct: 15, fxRate: 34.5, ...JSON.parse(saved) }
+        : { thCash: 50000, usCash: 1500, baseAllocPct: 15, fxRate: 34.5 };
     } catch {
-      return { thCash: 50000, usCash: 1500, baseAllocPct: 15 };
+      return { thCash: 50000, usCash: 1500, baseAllocPct: 15, fxRate: 34.5 };
     }
   });
 
@@ -3225,7 +3479,7 @@ export default function HalalDashboard() {
     dashboard: "Market Overview & AI Buddy Verdict",
     screener: "Halal Compliance & Buy Timing Screener",
     signals: "Active Trading Signals & Buddy Advice",
-    myportfolio: "My Active Positions, AI Allocator & Switching Advisor",
+    myportfolio: "My Active Positions, Cross-Currency Allocator & Switching Advisor",
   };
   const selectedStock = selectedTicker ? analyzedStocks.find((s) => s.ticker === selectedTicker) : null;
   const editingStock = editingHoldingTicker ? analyzedStocks.find((s) => s.ticker === editingHoldingTicker) : null;
@@ -3286,7 +3540,7 @@ export default function HalalDashboard() {
             <Sparkles size={13} /> AI Buddy Coach
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            เพื่อนคู่หู AI ช่วยจัดสรรเงินลงทุน 1–3 ตัว แนะนำจุดคัทลอส/ซื้อถัว/สลับตัวเล่น และชำระปันผลฮาลาล
+            เพื่อนคู่หู AI ช่วยจัดสรรเงินลงทุนข้ามตลาด (฿/$) กำหนดจำนวนหุ้นเองได้ แนะนำจุดคัทลอส/ซื้อถัว/สลับตัวเล่นครบวงจร
           </p>
         </div>
       </aside>
@@ -3300,7 +3554,7 @@ export default function HalalDashboard() {
                 {view === "dashboard" && "เพื่อนคู่หู AI ช่วยชี้เป้าว่าตัวไหนซื้อตอนนี้ได้เลย หรือตัวไหนต้องรอให้ย่อลงมาก่อน"}
                 {view === "screener" && "ตารางเทียบจังหวะเข้าซื้อ (ซื้อเลย vs รอย่อ) ความคุ้มค่า (RRR) และจำนวนเงินที่ควรลง"}
                 {view === "signals" && "การ์ดสัญญาณเทรดพร้อมคำแนะนำภาษาเพื่อน บอกจุดตั้งรับและขนาดไม้รายตัว"}
-                {view === "myportfolio" && "AI คำนวณการจัดสรรเงินลงทุนแบบโฟกัส (1–3 ตัว), แนะนำการปรับพอร์ต/สลับตัวเล่น และชำระปันผลฮาลาล"}
+                {view === "myportfolio" && "AI คำนวณจัดสรรเงินลงทุนอิสระ (เลือกตลาด TH/US/รวม · ใช้เงิน ฿ หรือ $ ซื้อได้ทุกตัว) และแนะนำการปรับพอร์ต/สลับตัวเล่น"}
               </p>
             </div>
 
