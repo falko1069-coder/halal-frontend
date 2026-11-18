@@ -221,8 +221,8 @@ function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio, holding) 
   // 5. คำนวณปริมาณเงินที่ควรลง (Position Sizing) รองรับการใช้เงินข้ามสกุล (บาท/ดอลลาร์)
   const isTH = stock.market === "TH";
   const fxRate = Math.max(1, Number(portfolio?.fxRate || 34.5));
-  const rawThCash = Number(portfolio?.thCash || 0);
-  const rawUsCash = Number(portfolio?.usCash || 0);
+  const rawThCash = Math.max(0, Number(portfolio?.thCash || 0));
+  const rawUsCash = Math.max(0, Number(portfolio?.usCash || 0));
 
   // หากในพอร์ตฝั่งนั้นเป็น 0 แต่มีเงินอีกสกุล ระบบแปลงค่าเงินมาช่วยคำนวณให้อัตโนมัติ
   const availableCash = isTH
@@ -682,7 +682,6 @@ function FavoriteButton({ isFav, onToggle, size = 15 }) {
 }
 
 // 💼 หน้าต่างป๊อปอัปบันทึก/แก้ไข "หุ้นที่ฉันซื้อถืออยู่จริง (Position Editor Modal)"
-// แก้ไขให้พิมพ์ทศนิยมละเอียด (เช่น 0.07234) และแก้ราคาต้นทุนได้อย่างอิสระโดยไม่ถูกรีเซ็ตขณะพิมพ์
 function HoldingEditorModal({ stock, allStocks = [], onClose, onSaveHolding, onRemoveHolding }) {
   if (!stock) return null;
   const [activeTicker, setActiveTicker] = useState(stock.ticker);
@@ -699,7 +698,7 @@ function HoldingEditorModal({ stock, allStocks = [], onClose, onSaveHolding, onR
     currentStock.isHeld ? String(currentStock.avgCost) : String(currentStock.currentPrice || 0)
   );
 
-  // อัปเดตค่าเริ่มต้นเฉพาะเมื่อผู้ใช้เปลี่ยนชื่อหุ้นใน Dropdown เท่านั้น (ไม่รีเซ็ตเองเวลาข้อมูลหลังบ้านอัปเดต)
+  // อัปเดตค่าเริ่มต้นเฉพาะเมื่อผู้ใช้เปลี่ยนชื่อหุ้นใน Dropdown เท่านั้น
   const prevTickerRef = useRef(activeTicker);
   useEffect(() => {
     if (prevTickerRef.current !== activeTicker) {
@@ -876,11 +875,14 @@ function HoldingEditorModal({ stock, allStocks = [], onClose, onSaveHolding, onR
 }
 
 // 💼 แผงควบคุม "เงินสดในมือของฉัน (My Portfolio Cash)" พร้อมเรทแลกเปลี่ยน THB/USD
+// แก้ไขให้เวลาลบตัวเลขจนหมด ช่องจะว่างเปล่าเหมือนโปรเจกต์ 2 (ไม่เด้งเลข 0 อัตโนมัติ)
 function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortfolioTab }) {
-  const fxRate = Number(portfolio?.fxRate || 34.5);
-  const handleNumChange = (field, val) => {
-    const clean = Math.max(0, Number(val) || 0);
-    onUpdatePortfolio({ ...portfolio, [field]: clean });
+  const handleRawInputChange = (field, rawVal) => {
+    onUpdatePortfolio({ ...portfolio, [field]: rawVal });
+  };
+
+  const handleSelectBasePct = (pct) => {
+    onUpdatePortfolio({ ...portfolio, baseAllocPct: pct });
   };
 
   return (
@@ -923,10 +925,11 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortf
               <input
                 type="number"
                 min="0"
-                step="1000"
-                value={portfolio.thCash}
-                onChange={(e) => handleNumChange("thCash", e.target.value)}
-                className="w-full bg-transparent text-white font-bold text-sm outline-none"
+                step="any"
+                placeholder="0"
+                value={portfolio.thCash ?? ""}
+                onChange={(e) => handleRawInputChange("thCash", e.target.value)}
+                className="w-full bg-transparent text-white font-bold text-sm outline-none placeholder-slate-600"
               />
             </div>
           </div>
@@ -941,10 +944,11 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortf
               <input
                 type="number"
                 min="0"
-                step="100"
-                value={portfolio.usCash}
-                onChange={(e) => handleNumChange("usCash", e.target.value)}
-                className="w-full bg-transparent text-white font-bold text-sm outline-none"
+                step="any"
+                placeholder="0"
+                value={portfolio.usCash ?? ""}
+                onChange={(e) => handleRawInputChange("usCash", e.target.value)}
+                className="w-full bg-transparent text-white font-bold text-sm outline-none placeholder-slate-600"
               />
             </div>
           </div>
@@ -959,10 +963,11 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortf
               <input
                 type="number"
                 min="1"
-                step="0.1"
-                value={fxRate}
-                onChange={(e) => handleNumChange("fxRate", e.target.value)}
-                className="w-full bg-transparent text-white font-bold text-sm outline-none"
+                step="any"
+                placeholder="34.5"
+                value={portfolio.fxRate ?? ""}
+                onChange={(e) => handleRawInputChange("fxRate", e.target.value)}
+                className="w-full bg-transparent text-white font-bold text-sm outline-none placeholder-slate-600"
               />
             </div>
           </div>
@@ -977,9 +982,9 @@ function PortfolioCashBar({ portfolio, onUpdatePortfolio, heldCount, onOpenPortf
                 <button
                   key={pct}
                   type="button"
-                  onClick={() => handleNumChange("baseAllocPct", pct)}
+                  onClick={() => handleSelectBasePct(pct)}
                   className={`flex-1 py-0.5 rounded text-[11px] font-bold border transition-all ${
-                    portfolio.baseAllocPct === pct
+                    Number(portfolio.baseAllocPct) === pct
                       ? "bg-emerald-500/25 border-emerald-500/50 text-emerald-300"
                       : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
                   }`}
@@ -1001,7 +1006,7 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
   const [marketScope, setMarketScope] = useState("ALL"); // ALL | TH | US
   const [budgetCurrency, setBudgetCurrency] = useState("THB"); // THB | USD
   const [customBudget, setCustomBudget] = useState(
-    String(portfolio?.thCash || 1000)
+    String(portfolio?.thCash ?? 1000)
   );
   const [targetCount, setTargetCount] = useState("2");
   const [selectionMode, setSelectionMode] = useState("AUTO"); // AUTO | MANUAL
@@ -1012,8 +1017,8 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
 
   // ปุ่มดึงงบด่วนตามสกุลเงินที่เลือก
   const applyPresetBudget = (mode) => {
-    const th = Number(portfolio?.thCash || 0);
-    const us = Number(portfolio?.usCash || 0);
+    const th = Math.max(0, Number(portfolio?.thCash || 0));
+    const us = Math.max(0, Number(portfolio?.usCash || 0));
     if (mode === "TH_ONLY") {
       setBudgetCurrency("THB");
       setCustomBudget(String(th));
@@ -1199,9 +1204,10 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
               type="number"
               min="0"
               step="any"
+              placeholder="0"
               value={customBudget}
               onChange={(e) => setCustomBudget(e.target.value)}
-              className="w-full bg-transparent text-white font-extrabold text-base outline-none"
+              className="w-full bg-transparent text-white font-extrabold text-base outline-none placeholder-slate-600"
             />
           </div>
 
@@ -1211,14 +1217,14 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
               onClick={() => applyPresetBudget("TH_ONLY")}
               className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300"
             >
-              งบไทย (฿{portfolio.thCash})
+              งบไทย (฿{Number(portfolio.thCash || 0).toLocaleString()})
             </button>
             <button
               type="button"
               onClick={() => applyPresetBudget("US_ONLY")}
               className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300"
             >
-              งบ US (${portfolio.usCash})
+              งบ US (${Number(portfolio.usCash || 0).toLocaleString()})
             </button>
             <button
               type="button"
@@ -1246,12 +1252,13 @@ function SmartFocusAllocatorBox({ stocks, portfolio, onSelectStock, onSaveHoldin
               type="number"
               min="1"
               max={maxAvailableCount}
+              placeholder="1"
               value={targetCount}
               onChange={(e) => {
                 setSelectionMode("AUTO");
                 setTargetCount(e.target.value);
               }}
-              className="w-20 bg-[#131824] border border-indigo-500/40 rounded-lg px-2.5 py-1 text-center text-white font-extrabold text-sm outline-none focus:border-indigo-400"
+              className="w-20 bg-[#131824] border border-indigo-500/40 rounded-lg px-2.5 py-1 text-center text-white font-extrabold text-sm outline-none focus:border-indigo-400 placeholder-slate-600"
             />
             <span className="text-xs text-slate-300 font-semibold">บริษัท</span>
           </div>
@@ -1754,9 +1761,10 @@ function DividendPurificationBox({ stocks, defaultTicker = "TSM", purificationLo
               type="number"
               min="0"
               step="any"
+              placeholder="0"
               value={dividendInput}
               onChange={(e) => setDividendInput(e.target.value)}
-              className="w-full bg-transparent text-white font-extrabold text-base outline-none"
+              className="w-full bg-transparent text-white font-extrabold text-base outline-none placeholder-slate-600"
             />
           </div>
           <p className="text-[10px] text-slate-500 mt-1">กรอกยอดก่อนหักภาษี หรือยอดสุทธิก็ได้</p>
@@ -1801,9 +1809,10 @@ function DividendPurificationBox({ stocks, defaultTicker = "TSM", purificationLo
               min="0"
               max="100"
               step="0.1"
+              placeholder="0"
               value={impurePctInput}
               onChange={(e) => setImpurePctInput(e.target.value)}
-              className="w-full bg-transparent text-amber-300 font-extrabold text-base outline-none"
+              className="w-full bg-transparent text-amber-300 font-extrabold text-base outline-none placeholder-slate-600"
             />
             <span className="text-amber-300 font-bold text-sm">%</span>
           </div>
@@ -3365,10 +3374,10 @@ export default function HalalDashboard() {
     try {
       const saved = localStorage.getItem("halal_portfolio_cash");
       return saved
-        ? { thCash: 50000, usCash: 1500, baseAllocPct: 15, fxRate: 34.5, ...JSON.parse(saved) }
-        : { thCash: 50000, usCash: 1500, baseAllocPct: 15, fxRate: 34.5 };
+        ? { thCash: "50000", usCash: "1500", baseAllocPct: 15, fxRate: "34.5", ...JSON.parse(saved) }
+        : { thCash: "50000", usCash: "1500", baseAllocPct: 15, fxRate: "34.5" };
     } catch {
-      return { thCash: 50000, usCash: 1500, baseAllocPct: 15, fxRate: 34.5 };
+      return { thCash: "50000", usCash: "1500", baseAllocPct: 15, fxRate: "34.5" };
     }
   });
 
@@ -3449,7 +3458,6 @@ export default function HalalDashboard() {
     });
   }, []);
 
-  // ✅ แก้ไขลูปการดึงข้อมูล: ใช้ hasLoadedRef เพื่อไม่ให้ฟังก์ชันถูกสร้างใหม่และเรียกซ้ำไม่รู้จบ
   const loadData = useCallback(async (isSilent = false) => {
     if (!isSilent && !hasLoadedRef.current) setIsLoading(true);
     setIsRefreshing(true);
