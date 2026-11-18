@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from "recharts";
@@ -255,12 +255,12 @@ function getRiskAndPositionPlan(stock, halal, signalStatus, portfolio, holding) 
   const rawShares = executionPrice > 0 ? allocAmount / executionPrice : 0;
   const recommendedShares = rawShares >= 1
     ? Math.floor(rawShares)
-    : Number(rawShares.toFixed(2));
+    : Number(rawShares.toFixed(4));
 
   const expectedProfitMoney = Math.round(allocAmount * (cleanUpside / 100));
   const maxLossMoney = Math.round(allocAmount * (cleanDownside / 100));
 
-  // 6. 💼 คำนวณสถานะหุ้นที่ถืออยู่จริง (Active Position P/L Tracker)
+  // 6. 💼 คำนวณสถานะหุ้นที่ถืออยู่จริง (Active Position P/L Tracker - รองรับทศนิยมละเอียด เช่น 0.07234 หุ้น)
   const heldShares = Number(holding?.shares || 0);
   const avgCost = Number(holding?.avgCost || 0);
   const isHeld = heldShares > 0 && avgCost > 0;
@@ -442,7 +442,7 @@ function buildPositionActionPlan(heldStock, allStocks, allowCrossMarket = true, 
   const bestAlt = candidatePool[0] || null;
   const altCurr = bestAlt?.currency || curr;
 
-  const heldShares = heldStock.isHeld ? heldStock.heldShares : Math.max(1, heldStock.recommendedShares || 1);
+  const heldShares = heldStock.isHeld ? heldStock.heldShares : Math.max(0.0001, heldStock.recommendedShares || 1);
   const avgCost = heldStock.isHeld ? heldStock.avgCost : heldStock.currentPrice;
   const currentVal = Number((heldShares * heldStock.currentPrice).toFixed(2));
   const investedVal = Number((heldShares * avgCost).toFixed(2));
@@ -456,7 +456,7 @@ function buildPositionActionPlan(heldStock, allStocks, allowCrossMarket = true, 
   );
   const rawAddShares = heldStock.currentPrice > 0 ? addBudget / heldStock.currentPrice : 0;
   const addShares = rawAddShares >= 1 ? Math.floor(rawAddShares) : Number(rawAddShares.toFixed(4));
-  const totalSharesAfterAvg = Number((heldShares + addShares).toFixed(4));
+  const totalSharesAfterAvg = Number((heldShares + addShares).toFixed(5));
   const newAvgCost =
     totalSharesAfterAvg > 0
       ? Number(((investedVal + addShares * heldStock.currentPrice) / totalSharesAfterAvg).toFixed(2))
@@ -682,6 +682,7 @@ function FavoriteButton({ isFav, onToggle, size = 15 }) {
 }
 
 // 💼 หน้าต่างป๊อปอัปบันทึก/แก้ไข "หุ้นที่ฉันซื้อถืออยู่จริง (Position Editor Modal)"
+// แก้ไขให้พิมพ์ทศนิยมละเอียด (เช่น 0.07234) และแก้ราคาต้นทุนได้อย่างอิสระโดยไม่ถูกรีเซ็ตขณะพิมพ์
 function HoldingEditorModal({ stock, allStocks = [], onClose, onSaveHolding, onRemoveHolding }) {
   if (!stock) return null;
   const [activeTicker, setActiveTicker] = useState(stock.ticker);
@@ -691,21 +692,26 @@ function HoldingEditorModal({ stock, allStocks = [], onClose, onSaveHolding, onR
   );
   const curr = currentStock.currency || "$";
 
-  const [shares, setShares] = useState(
+  const [shares, setShares] = useState(() =>
     currentStock.isHeld ? String(currentStock.heldShares) : String(currentStock.recommendedShares || 1)
   );
-  const [avgCost, setAvgCost] = useState(
+  const [avgCost, setAvgCost] = useState(() =>
     currentStock.isHeld ? String(currentStock.avgCost) : String(currentStock.currentPrice || 0)
   );
 
+  // อัปเดตค่าเริ่มต้นเฉพาะเมื่อผู้ใช้เปลี่ยนชื่อหุ้นใน Dropdown เท่านั้น (ไม่รีเซ็ตเองเวลาข้อมูลหลังบ้านอัปเดต)
+  const prevTickerRef = useRef(activeTicker);
   useEffect(() => {
-    setShares(
-      currentStock.isHeld ? String(currentStock.heldShares) : String(currentStock.recommendedShares || 1)
-    );
-    setAvgCost(
-      currentStock.isHeld ? String(currentStock.avgCost) : String(currentStock.currentPrice || 0)
-    );
-  }, [currentStock]);
+    if (prevTickerRef.current !== activeTicker) {
+      prevTickerRef.current = activeTicker;
+      setShares(
+        currentStock.isHeld ? String(currentStock.heldShares) : String(currentStock.recommendedShares || 1)
+      );
+      setAvgCost(
+        currentStock.isHeld ? String(currentStock.avgCost) : String(currentStock.currentPrice || 0)
+      );
+    }
+  }, [activeTicker, currentStock]);
 
   const numShares = Math.max(0, Number(shares) || 0);
   const numCost = Math.max(0, Number(avgCost) || 0);
@@ -789,7 +795,7 @@ function HoldingEditorModal({ stock, allStocks = [], onClose, onSaveHolding, onR
               min="0"
               value={shares}
               onChange={(e) => setShares(e.target.value)}
-              placeholder="เช่น 100 หรือ 0.05"
+              placeholder="เช่น 100 หรือ 0.07234"
               className="w-full bg-[#090D16] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm font-bold text-white outline-none focus:border-emerald-500"
             />
           </div>
@@ -1671,8 +1677,10 @@ function DividendPurificationBox({ stocks, defaultTicker = "TSM", purificationLo
   const [impurePctInput, setImpurePctInput] = useState(String(selectedStock?.purificationRate ?? 1.5));
   const [taxRatePct, setTaxRatePct] = useState(selectedStock?.market === "TH" ? 10 : 15);
 
+  const prevPurifyTickerRef = useRef(selectedTicker);
   useEffect(() => {
-    if (selectedStock) {
+    if (prevPurifyTickerRef.current !== selectedTicker && selectedStock) {
+      prevPurifyTickerRef.current = selectedTicker;
       setImpurePctInput(String(selectedStock.purificationRate ?? 1.5));
       setTaxRatePct(selectedStock.market === "TH" ? 10 : 15);
     }
@@ -3338,6 +3346,7 @@ export default function HalalDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState("");
   const [error, setError] = useState(null);
+  const hasLoadedRef = useRef(false);
 
   const [favorites, setFavorites] = useState(() => {
     try {
@@ -3440,11 +3449,13 @@ export default function HalalDashboard() {
     });
   }, []);
 
+  // ✅ แก้ไขลูปการดึงข้อมูล: ใช้ hasLoadedRef เพื่อไม่ให้ฟังก์ชันถูกสร้างใหม่และเรียกซ้ำไม่รู้จบ
   const loadData = useCallback(async (isSilent = false) => {
-    if (!isSilent && !marketData) setIsLoading(true);
+    if (!isSilent && !hasLoadedRef.current) setIsLoading(true);
     setIsRefreshing(true);
     try {
       const data = await fetchMarketData();
+      hasLoadedRef.current = true;
       setMarketData(data);
       setLastUpdated(new Date().toLocaleTimeString("th-TH"));
       setError(null);
@@ -3454,16 +3465,20 @@ export default function HalalDashboard() {
       setIsLoading(false);
       setTimeout(() => setIsRefreshing(false), 400);
     }
-  }, [marketData]);
+  }, []);
 
-  useEffect(() => { 
-    loadData(); 
-    const delay = marketData ? 60000 : 4000;
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const isDataLoaded = Boolean(marketData);
+  useEffect(() => {
+    const delay = isDataLoaded ? 60000 : 4000;
     const interval = setInterval(() => {
       loadData(true);
     }, delay);
     return () => clearInterval(interval);
-  }, [loadData, marketData]);
+  }, [loadData, isDataLoaded]);
 
   const analyzedStocks = useMemo(() => {
     if (!marketData) return [];
